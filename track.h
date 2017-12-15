@@ -35,6 +35,17 @@ struct trackoptions {
     unsigned int step_angle_x;
     unsigned int step_angle_y;
     unsigned int move_wait;
+    /* FOSCAM */
+    char *track_home_pos_name; 	//FOSCAM Name of home position
+	int FOSCAM_thread_running; 	//FOSCAM thread control
+	pthread_t thread_id;		//FOSCAM thread control
+	//char direction[PATH_MAX];  	//FOSCAM thread use
+	int direction;				//FOSCAM thread use
+	int step_size;  			//FOSCAM thread use
+	int isCamMoving;   			//FOSCAM thread use
+	int abs_x;					//FOSCAM calculated absolute x pos(+/- from home position which is 0)
+	int abs_y;					//FOSCAM calculated absolute y pos(+/- from home position which is 0)
+    
     /* UVC */
     int pan_angle; // degrees
     int tilt_angle; // degrees
@@ -57,6 +68,7 @@ unsigned int track_move(struct context *, int, struct coord *, struct images *, 
 #define TRACK_TYPE_GENERIC      4
 #define TRACK_TYPE_UVC          5
 #define TRACK_TYPE_SERVO        6
+#define TRACK_TYPE_FOSCAM_HD      7
 
 /*
  * Some defines for the Serial stepper motor:
@@ -154,6 +166,22 @@ unsigned int track_move(struct context *, int, struct coord *, struct images *, 
 #define IOMOJO_DIRECTION_LEFT   0x02
 #define IOMOJO_DIRECTION_DOWN   0x04
 #define IOMOJO_DIRECTION_UP     0x08
+
+/*
+* Some defines for the Foscam HD pan/tilt/zoom cameras:
+*/
+
+#define FOSCAM_HD_UP                  "ptzMoveUp"
+#define FOSCAM_HD_STOP                "ptzStopRun"
+#define FOSCAM_HD_DOWN                "ptzMoveDown"
+#define FOSCAM_HD_LEFT                "ptzMoveLeft"
+#define FOSCAM_HD_RIGHT               "ptzMoveRight"
+#define FOSCAM_HD_MOVEHOME            "ptzGotoPresetPoint&name="
+#define FOSCAM_HD_LEFT_UP             "ptzMoveTopLeft"
+#define FOSCAM_HD_RIGHT_UP            "ptzMoveTopRight"
+#define FOSCAM_HD_LEFT_DOWN           "ptzMoveBottomLeft"
+#define FOSCAM_HD_RIGHT_DOWN          "ptzMoveBottomRight"
+#define FOSCAM_HD_HOME                "0"
 
 #ifdef HAVE_V4L2
 

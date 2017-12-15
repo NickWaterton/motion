@@ -842,7 +842,7 @@ static void netcam_disconnect(netcam_context_ptr netcam)
  * Returns:     0 for success, -1 for error
  *
  */
-static int netcam_connect(netcam_context_ptr netcam, int err_flag)
+int netcam_connect(netcam_context_ptr netcam, int err_flag)
 {
     struct addrinfo *ai;
     int ret;
@@ -1006,6 +1006,103 @@ static int netcam_connect(netcam_context_ptr netcam, int err_flag)
     rbuf_initialize(netcam);
 
     return 0;   /* Success */
+}
+
+/**
+ * netcam_hd_foscam_start_stream
+ *
+ * This routine attempts to start the Foscam video stream by sending the 
+ * SERVERPUSH connect_request command, then sending the video_start command.
+ *
+ * After this, the routine returns to the caller.
+ *
+ * Parameters:
+ *      netcam            Pointer to the netcam_context structure.
+ *
+ * Returns:               0 if successful, -1 if not
+ */
+int netcam_hd_foscam_start_stream(netcam_context_ptr netcam)
+{
+    fosc_command_vid_on command;
+
+    /* Send the initial command to the camera. */
+    if (send(netcam->sock, netcam->connect_request,
+             strlen(netcam->connect_request), 0) < 0) {
+        MOTION_LOG(ERR, TYPE_NETCAM, SHOW_ERRNO, "%s: cam: %s Error sending"
+                   " 'connect' request", netcam->connect_host);
+        return -1;
+    }
+    
+    /* build start video command */
+    command.command = 0;  //start video
+    command.len_data = 161;
+    command.magic[0] = 'F';
+    command.magic[1] = 'O';
+    command.magic[2] = 'S';
+    command.magic[3] = 'C';
+    
+    //command.stream = 1;
+    command.stream = netcam->cnt->conf.hd_foscam_stream;
+    strcpy(command.username, netcam->rtsp->user);
+    strcpy(command.passwd, netcam->rtsp->pass);
+    command.uid = (int)time(NULL);  //uid from timestamp  
+    
+    MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Stream Selected is: %d", netcam->connect_host, command.stream);
+      
+    /* Now send "start video command" */
+    if (send(netcam->sock, &command,
+             sizeof(command), 0) < 0) {
+        MOTION_LOG(ERR, TYPE_NETCAM, SHOW_ERRNO, "%s: cam: %s Error sending"
+                   " 'video on' request", netcam->connect_host);
+        return -1;
+    }
+    
+    return 0;
+}
+
+/**
+ * netcam_hd_foscam_stop_stream
+ *
+ * This routine attempts to stop the Foscam video stream by sending the 
+ * video_stop command. it may fail, as the camera may be disconnected.
+ *
+ * After this, the routine returns to the caller.
+ *
+ * Parameters:
+ *      netcam            Pointer to the netcam_context structure.
+ *
+ * Returns:               0 if successful, -1 if not
+ */
+int netcam_hd_foscam_stop_stream(netcam_context_ptr netcam)
+{
+    fosc_command_vid_off command;
+    
+    /* build start video command */
+    command.command = 1;  //stop video
+    command.len_data = 129;
+    command.magic[0] = 'F';
+    command.magic[1] = 'O';
+    command.magic[2] = 'S';
+    command.magic[3] = 'C';
+    
+    command.stop = 0;
+    strcpy(command.username, netcam->rtsp->user);
+    strcpy(command.passwd, netcam->rtsp->pass); 
+    
+    MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Stopping Video Stream", netcam->connect_host);
+      
+    /* Now send "stop video command" */
+    if (send(netcam->sock, &command,
+             sizeof(command), 0) < 0) {
+        MOTION_LOG(ERR, TYPE_NETCAM, SHOW_ERRNO, "%s: cam: %s Error sending"
+                   " 'video off' request", netcam->connect_host);
+        netcam_disconnect(netcam);
+        return -1;
+    }
+    
+    netcam_disconnect(netcam);
+    
+    return 0;
 }
 
 void netcam_check_buffsize(netcam_buff_ptr buff, size_t numbytes)
@@ -1431,11 +1528,27 @@ static int netcam_mjpg_buffer_refill(netcam_context_ptr netcam)
     while (1) {
         retval = rbuf_read_bufferful(netcam);
         if (retval <= 0) { /* If we got 0, we timeoutted. */
-            MOTION_LOG(ALR, TYPE_NETCAM, NO_ERRNO, "%s: Read error,"
-                       " trying to reconnect..");
-            /* We may have lost the connexion */
+            
+            /* We may have lost the connection */
+            if (netcam->cnt->conf.is_hd_foscam == TRUE) {
+                MOTION_LOG(WRN, TYPE_NETCAM, NO_ERRNO, "%s: Read error for camera: %s,"
+                       " trying to re-read data", netcam->connect_host);
+                /* try to re-read from camera */
+                retval = rbuf_read_bufferful(netcam);
+                if (retval <= 0) {
+                    MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: Second read attempt for camera: %s,"
+                       " failed trying to reconnect..", netcam->connect_host);
+                       
+                    netcam_hd_foscam_stop_stream(netcam);
+                    return -1;
+                }
+            MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: Successful second read attempt for camera: %s,", netcam->connect_host);
+            break;    
+            }
+            MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: Read error for camera: %s,"
+                       " trying to reconnect..", netcam->connect_host);
             if (netcam_http_request(netcam) < 0) {
-                MOTION_LOG(CRT, TYPE_NETCAM, NO_ERRNO, "%s: lost the cam.");
+                MOTION_LOG(CRT, TYPE_NETCAM, NO_ERRNO, "%s: lost the cam %s.", netcam->connect_host);
                 return -1; /* We REALLY lost the cam... bail out for now. */
             }
         }
@@ -1447,8 +1560,8 @@ static int netcam_mjpg_buffer_refill(netcam_context_ptr netcam)
     netcam->response->buffer_left = retval;
     netcam->response->buffer_pos = netcam->response->buffer;
 
-    MOTION_LOG(INF, TYPE_NETCAM, NO_ERRNO, "%s: Refilled buffer with [%d]"
-               " bytes from the network.", retval);
+    MOTION_LOG(INF, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Refilled buffer with [%d]"
+               " bytes from the network.", netcam->connect_host, retval);
 
     return retval;
 }
@@ -1514,7 +1627,7 @@ static int netcam_read_mjpg_jpeg(netcam_context_ptr netcam)
 
             read_bytes += retval;
 
-            MOTION_LOG(INF, TYPE_NETCAM, NO_ERRNO, "%s: Read [%d/%d] header bytes.",
+            MOTION_LOG(INF, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Read [%d/%d] header bytes.",netcam->connect_host,
                        read_bytes, sizeof(mh));
 
             /* If we don't have received a full header, refill our buffer. */
@@ -1526,8 +1639,8 @@ static int netcam_read_mjpg_jpeg(netcam_context_ptr netcam)
 
         /* Now check the validity of our header. */
         if (strncmp(mh.mh_magic, MJPG_MH_MAGIC, MJPG_MH_MAGIC_SIZE)) {
-            MOTION_LOG(WRN, TYPE_NETCAM, NO_ERRNO, "%s: Invalid header received,"
-                       " reconnecting");
+            MOTION_LOG(WRN, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Invalid header received,"
+                       " reconnecting",netcam->connect_host);
             /*
              * We shall reconnect to restart the stream, and get a chance
              * to resync.
@@ -1547,12 +1660,12 @@ static int netcam_read_mjpg_jpeg(netcam_context_ptr netcam)
             retval = rbuf_flush(netcam, buffer->ptr + buffer->used + read_bytes,
                                 mh.mh_chunksize - read_bytes);
             read_bytes += retval;
-            MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: Read [%d/%d] chunk bytes,"
-                       " [%d/%d] total", read_bytes, mh.mh_chunksize,
+            MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Read [%d/%d] chunk bytes,"
+                       " [%d/%d] total",netcam->connect_host, read_bytes, mh.mh_chunksize,
                        buffer->used + read_bytes, mh.mh_framesize);
 
             if (retval < (int) (mh.mh_chunksize - read_bytes)) {
-                /* MOTION_LOG(EMG, TYPE_NETCAM, NO_ERRNO, "Chunk incomplete, going to refill."); */
+                /* MOTION_LOG(EMG, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Chunk incomplete, going to refill.",netcam->connect_host); */
                 if (netcam_mjpg_buffer_refill(netcam) < 0)
                     return -1;
 
@@ -1560,19 +1673,276 @@ static int netcam_read_mjpg_jpeg(netcam_context_ptr netcam)
         }
         buffer->used += read_bytes;
 
-        MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: Chunk complete,"
-                   " buffer used [%d] bytes.", buffer->used);
+        MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: cam:%s Chunk complete,"
+                   " buffer used [%d] bytes.",netcam->connect_host, buffer->used);
 
         /* Is our JPG image complete ? */
         if (mh.mh_framesize == buffer->used) {
-            MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: Image complete,"
-                       " buffer used [%d] bytes.", buffer->used);
+            MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Image complete,"
+                       " buffer used [%d] bytes.",netcam->connect_host, buffer->used);
             break;
         }
-        /* MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: Rlen now at [%d] bytes", rlen); */
+        /* MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Rlen now at [%d] bytes",netcam->connect_host, rlen); */
     }
 
     netcam_image_read_complete(netcam);
+
+    return 0;
+}
+
+/**
+ * netcam_read_hd_foscam
+ *
+ *     This routine reads from a netcam using a H264-chunk based 
+ *     protocol, used by Foscam HD cameras.
+ *     This implementation has been made by reverse-engineering
+ *     the protocol, so it may contain bugs and should be considered as
+ *     experimental.
+ *
+ * Protocol explanation:
+ *
+ *     The stream consists of H264 frames, each frame is constituted by a command header plus the 
+ *     video header then the data. if the command header indicates a video frame (26), the video
+ *     header follows as part of the data and is always 36 bytes in size.
+ *     The command header is of fixed size (12 bytes), and the following data size
+ *     and position in the frame is specified in the header.
+ *
+ *     From what i have seen on Foscam cameras, the stream always begins
+ *     on H264 frame boundary, so you don't have to worry about beginning
+ *     in the middle of a frame.
+ *
+ *     See netcam.h for the foscam_header structure and more details.
+ *
+ * Parameters:
+ *      netcam          Pointer to a netcam_context structure
+ *
+ * Returns:             0 if an image was obtained from the camera,
+ *                      or -1 if an error occurred.
+ */
+int netcam_read_hd_foscam(netcam_context_ptr netcam)
+{
+    netcam_buff_ptr buffer;
+    //struct timeval curtime;
+    fosc_header fh;
+    fosc_video_header fvh;
+    size_t read_bytes;
+    int retval;
+
+    /*
+     * Initialisation - set our local pointers to the context
+     * information.
+     */
+    buffer = netcam->receiving;
+    /* Assure the target buffer is empty. */
+    buffer->used = 0;
+
+    if (netcam_mjpg_buffer_refill(netcam) < 0)
+        return -1;
+
+    /* Loop until we have a complete H264 frame. */
+    while (1) {
+        read_bytes = 0;
+        while (read_bytes < sizeof(fh)) {   //sizeof(fh) = 12
+
+            /* Transfer what we have in buffer into the header structure. */
+            retval = rbuf_flush(netcam, ((char *)&fh) + read_bytes, sizeof(fh) - read_bytes);
+
+            read_bytes += retval;
+
+            MOTION_LOG(INF, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Primary Read [%d/%d] header bytes.",netcam->connect_host, 
+                       read_bytes, sizeof(fh));
+
+            /* If we haven't have received a full header, refill our buffer. */
+            if (read_bytes < sizeof(fh)) {
+                if (netcam_mjpg_buffer_refill(netcam) < 0)
+                    return -1;
+            }
+        }
+
+        /* Now check the validity of our header. */
+        if (strncmp(fh.magic, FOSC_MAGIC, FOSC_MAGIC_SIZE)) {   //check for "FOSC", and if true (ie not found)
+            int header_found = 0;
+            char *tail = (char*)&fh.command;    //make char pointer to command
+            if (!strncmp(tail, "TAIL", FOSC_MAGIC_SIZE)) {  //if command is "TAIL" - end of video frame on new cameras, followed by int: 20 (don't know) and int frame number in "size"
+                MOTION_LOG(INF, TYPE_NETCAM, NO_ERRNO, "%s: found TAIL command for cam: %s", netcam->connect_host);
+                long uptime = 0;
+                read_bytes = 0;
+                while (read_bytes < 8) {
+                    retval = rbuf_flush(netcam, ((char *)&uptime), 8);  //read 8 more bytes (is a long with uptime timestamp in it)
+                    read_bytes += retval;
+                    /* If we haven't have received a full header, refill our buffer. */
+                    if (read_bytes < 8) {
+                        if (netcam_mjpg_buffer_refill(netcam) < 0)
+                            return -1;
+                    }
+                }
+                read_bytes = 0; //now read the next header, which should be real...
+                while (read_bytes < sizeof(fh)) {   //sizeof(fh) = 12
+
+                    /* Transfer what we have in buffer into the header structure. */
+                    retval = rbuf_flush(netcam, ((char *)&fh) + read_bytes, sizeof(fh) - read_bytes);
+
+                    read_bytes += retval;
+
+                    MOTION_LOG(INF, TYPE_NETCAM, NO_ERRNO, "%s: Secondary Read [%d/%d] header bytes.", 
+                               read_bytes, sizeof(fh));
+
+                    /* If we haven't have received a full header, refill our buffer. */
+                    if (read_bytes < sizeof(fh)) {
+                        if (netcam_mjpg_buffer_refill(netcam) < 0)
+                            return -1;
+                    }
+                }
+                if (!strncmp(fh.magic, FOSC_MAGIC, FOSC_MAGIC_SIZE)) {
+                    //MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: found FOSC command for cam: %s", netcam->connect_host);
+                    header_found = 1; //if we now have a valid header, continue
+                }
+            }
+            if(header_found == 0) {
+                MOTION_LOG(WRN, TYPE_NETCAM, NO_ERRNO, "%s: Invalid Foscam header (%x.%x.%x.%x) received from camera: %s,"
+                           " buffer_left: %d, buffer_pos: %d trying to resync camera...", fh.magic[0],fh.magic[1],fh.magic[2],fh.magic[3], netcam->connect_host, netcam->response->buffer_left, netcam->response->buffer_pos);
+                
+                /* Try to resync camera */
+                read_bytes = 0;    
+                retval = 0;
+                netcam->response->buffer_pos -= sizeof(fh);
+                netcam->response->buffer_left += sizeof(fh); // back to start of buffer, and look for magic string 1 byte at a time.
+                int buf_pos = 0;
+                while (strncmp(fh.magic, FOSC_MAGIC, FOSC_MAGIC_SIZE)) {    //while not "FOSC"
+                    while (buf_pos < sizeof(fh)) {
+                        /* Transfer what we have in buffer into the header structure. */
+                        //retval = rbuf_flush(netcam, ((char *)&fh) + read_bytes, sizeof(fh) - retval);
+                        while (read_bytes < sizeof(fh)) { 
+                            retval = rbuf_flush(netcam, ((char *)&fh) + buf_pos, sizeof(fh) - read_bytes);
+                            read_bytes += retval;
+                            /* If we haven't have received a full header, refill our buffer. */
+                            if (read_bytes < sizeof(fh)) {
+                                MOTION_LOG(INF, TYPE_NETCAM, NO_ERRNO, "%s: Tertiary Read [%d/%d] header bytes.", 
+                                        read_bytes, sizeof(fh));
+                                if (netcam_mjpg_buffer_refill(netcam) < 0)
+                                    return -1;
+                            }
+                        }
+                        
+                        //MOTION_LOG(WRN, TYPE_NETCAM, NO_ERRNO, "%s: Invalid Foscam header (%c.%c.%c.%c) received from camera: %s,"
+                        //   " buffer_left: %d continuing resync of camera...", fh.magic[0],fh.magic[1],fh.magic[2],fh.magic[3], netcam->connect_host, netcam->response->buffer_left);
+                        if (!strncmp(fh.magic, FOSC_MAGIC, FOSC_MAGIC_SIZE)) {  //if we find "FOSC"
+                            MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: Found valid Foscam header (%c.%c.%c.%c) for camera: %s at posn: %d cmd: %d (26=video), size: %d", fh.magic[0],fh.magic[1],fh.magic[2],fh.magic[3],netcam->connect_host, buf_pos, fh.command, fh.datasize);
+                            break;
+                        }
+                        buf_pos++;
+                    }
+                    buf_pos = 0;
+                    read_bytes = 0;
+                    //read_bytes -= sizeof(fh);
+                    //buf_pos += 1;    // Increment by 1 byte
+                    //retval = 0;
+                }
+                /* if we are here, we have resynced successfully */  
+                MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: Successfully resynced camera: %s,",netcam->connect_host);
+                
+                /*
+                 * We shall reconnect to restart the stream, and get a chance
+                 * to resync.
+                 */
+                //netcam_hd_foscam_stop_stream(netcam);
+                //buffer->used = 0;
+                //return -1;
+            }
+        }
+
+        MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: Valid Foscam header received for camera: %s", netcam->connect_host); 
+        
+        /* note commands: 16  = unknown
+                          26  = video frame
+                          111 = motion detected
+        */
+        
+        if (fh.command != 26) {
+            if(fh.command == 111) {
+                MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: Motion Detetcted cam: %s command is %d", netcam->connect_host, fh.command);
+            }
+            else
+                MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: not video! cam: %s command is %d", netcam->connect_host, fh.command);
+            read_bytes = 0;
+            /* skip fh.datasize bytes forward in buffer */
+            while (read_bytes < fh.datasize) {
+                
+                read_bytes = MINVAL ((int)netcam->response->buffer_left, fh.datasize - read_bytes);
+            
+                netcam->response->buffer_left -= read_bytes;
+                netcam->response->buffer_pos += read_bytes;
+                
+                /* If we haven't have received a full header, refill our buffer. */
+                if (netcam_mjpg_buffer_refill(netcam) < 0)
+                    return -1;
+            }
+        }
+        
+        else {         //video frame
+            MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s video! command is %d",netcam->connect_host, fh.command);
+            //MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s H264 video frame size is %d",netcam->connect_host, fh.datasize - sizeof(fvh)); 
+            //MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s video header size is %d (should be 36) camera: %s",netcam->connect_host, sizeof(fvh));
+        
+            // read video frame header
+            read_bytes = 0;
+            int video_header_size = 36;//sizeof(fvh);  //NOTE hard coded to 36 for now
+            while (read_bytes < video_header_size) {   //NOTE hard coded to 36 for now
+                
+                retval = rbuf_flush(netcam, ((char *)&fvh) + read_bytes, video_header_size - read_bytes); //NOTE hard coded to 36 for now
+                
+                read_bytes += retval;
+                MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Read [%d/%d] video header bytes",netcam->connect_host, read_bytes, sizeof(fvh));
+
+                if (retval < (int) (sizeof(fvh) - read_bytes)) {
+                    MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s video header incomplete, going to refill",netcam->connect_host);
+                    if (netcam_mjpg_buffer_refill(netcam) < 0)
+                        return -1;
+                
+                }
+            }
+
+            netcam->rtsp->tstamp = fvh.tstamp;
+            netcam->width = fvh.width;
+            netcam->height = fvh.height;
+            
+            /* Make room for the frame. */
+            netcam_check_buffsize(buffer, (int) fvh.frame_size);
+            
+            /* reset buffer used/bytes used */
+            buffer->used = 0;
+            read_bytes = 0;
+            while (read_bytes < fvh.frame_size) {
+                
+                retval = rbuf_flush(netcam, buffer->ptr + buffer->used + read_bytes,
+                                fvh.frame_size - read_bytes);
+                read_bytes += retval;
+                MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Read [%d/%d] frame bytes"
+                       " [%d/%d] total",netcam->connect_host, read_bytes, fvh.frame_size, 
+                       buffer->used + read_bytes, fvh.frame_size);
+
+                if (retval < (int) (fvh.frame_size - read_bytes)) {
+                    MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Frame incomplete, going to refill.", netcam->connect_host);
+                    if (netcam_mjpg_buffer_refill(netcam) < 0)
+                        return -1;
+                
+                }
+            }
+            buffer->used += read_bytes;
+
+            MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Frame complete,"
+                   " buffer used [%d] bytes.",netcam->connect_host, buffer->used); 
+
+            /* Is our H264 frame complete ? */
+            //if (fvh.frame_size == buffer->used && fvh.isKeyFrame == 1) {
+            if (fvh.frame_size == buffer->used) {
+                if (fvh.isKeyFrame == 1) MOTION_LOG(INF, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s H264 Key Frame found", netcam->connect_host);
+                break;
+            }
+        /* otherwise keep looping looking for images */
+        }
+        /* MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: Rlen now at [%d] bytes", rlen); */
+    }
 
     return 0;
 }
@@ -1987,7 +2357,7 @@ static void *netcam_handler_loop(void *arg)
  * Returns:             0 on success,
  *                      or -1 if an fatal error occurs.
  */
-static int netcam_http_build_url(netcam_context_ptr netcam, struct url_t *url)
+int netcam_http_build_url(netcam_context_ptr netcam, struct url_t *url)
 {
     struct context *cnt = netcam->cnt;
     const char *ptr;                  /* Working var */

@@ -29,6 +29,13 @@
 static int netcam_rtsp_resize(netcam_context_ptr netcam);
 static int netcam_rtsp_open_sws(netcam_context_ptr netcam);
 
+/* This is used for the Foscam HD low level protocol */
+static char *connect_req_foscamhd = "SERVERPUSH / HTTP/1.1\r\n"
+                                    "Host: 0.0.0.0\r\n"
+                                    "Accept:*/*\r\n"
+                                    "User-Agent: Motion-netcam/" VERSION "\r\n"
+                                    "Connection: close\r\n\r\n\r\n"; 
+
 /**
  * netcam_check_pixfmt
  *
@@ -149,10 +156,65 @@ static int rtsp_decode_video(AVPacket *packet, AVFrame *frame, AVCodecContext *c
 
     if (check == 0 || retcd == 0) return 0;
     return 1;
+    
+}
 
 #endif
 
+/**
+ * decode_packet (for foscam h264 data)
+ *
+ * This routine takes in the packet from the read and decodes it into
+ * the frame.  It then takes the frame and copies it into the netcam
+ * buffer
+ *
+ * Parameters:
+ *      packet    The packet that was read from av_read
+ *      buffer    The buffer that is the final destination
+ *      frame     The frame into which we decode the packet
+ *
+ *
+ * Returns:
+ *      Failure    0(zero)
+ *      Success    The size of the frame decoded
+ */
+static int decode_packet(AVPacket *packet, netcam_buff_ptr buffer, AVFrame *frame, AVCodecContext *cc){
+    int check = 0;
+    int frame_size = 0;
+    int ret = 0;
+    
+    MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: Decoding foscam video Packet");
+    
+    ret = avcodec_decode_video2(cc, frame, &check, packet);
+    if (ret < 0) {
+        MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: Error decoding video packet");
+        return 0;
+    }
+
+    if (check == 0) {
+        MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: Check: Error decoding video packet");
+        return 0;
+    }
+
+    //frame_size = avpicture_get_size(cc->pix_fmt, cc->width, cc->height);
+    frame_size = my_image_get_buffer_size(cc->pix_fmt, cc->width, cc->height);
+
+    netcam_check_buffsize(buffer, frame_size);
+
+    //avpicture_layout((const AVPicture*)frame,cc->pix_fmt,cc->width,cc->height
+    //                ,(unsigned char *)buffer->ptr,frame_size );
+                    
+    ret = my_image_copy_to_buffer(frame, (uint8_t *)buffer->ptr,cc->pix_fmt,cc->width,cc->height, frame_size);
+    if (ret < 0) {
+        MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: Error decoding video packet: Copying to buffer");
+        return -1;
+    }
+
+    buffer->used = frame_size;
+
+    return frame_size;
 }
+
 /**
  * rtsp_decode_packet
  *
@@ -211,22 +273,32 @@ static int rtsp_decode_packet(AVPacket *packet, netcam_buff_ptr buffer, AVFrame 
  */
 static int netcam_open_codec(netcam_context_ptr netcam){
 
-    int retcd;
+    int retcd = 0;
     char errstr[128];
     AVStream *st;
     AVCodec *decoder = NULL;
+    
+    //avcodec_register_all(); //probably not needed
 
-    retcd = av_find_best_stream(netcam->rtsp->format_context, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
-    if ((retcd < 0) || (netcam->rtsp->interrupted == 1)){
-        av_strerror(retcd, errstr, sizeof(errstr));
-        MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: Could not find stream in input!: %s",errstr);
-        return (retcd < 0) ? retcd : -1;
+    if (netcam->cnt->conf.is_hd_foscam == FALSE) {  //don't need to find the stream for foscam
+        MOTION_LOG(INF, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s open codec (none foscam)", netcam->connect_host);
+        retcd = av_find_best_stream(netcam->rtsp->format_context, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
+        //retcd = av_find_best_stream(netcam->rtsp->format_context, AVMEDIA_TYPE_VIDEO, -1, -1, &decoder, 0); //should work just as well
+        if ((retcd < 0) || (netcam->rtsp->interrupted == 1)){
+            av_strerror(retcd, errstr, sizeof(errstr));
+            MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: Could not find stream in input!: %s",errstr);
+            return (retcd < 0) ? retcd : -1;
+        }
+        netcam->rtsp->video_stream_index = retcd;
+        st = netcam->rtsp->format_context->streams[netcam->rtsp->video_stream_index];
     }
-    netcam->rtsp->video_stream_index = retcd;
-    st = netcam->rtsp->format_context->streams[netcam->rtsp->video_stream_index];
+
 
 #if (LIBAVFORMAT_VERSION_MAJOR >= 58) || ((LIBAVFORMAT_VERSION_MAJOR == 57) && (LIBAVFORMAT_VERSION_MINOR >= 41))
-    decoder = avcodec_find_decoder(st->codecpar->codec_id);
+    if (netcam->cnt->conf.is_hd_foscam == TRUE)
+        decoder = avcodec_find_decoder(CODEC_ID_H264);
+    else
+        decoder = avcodec_find_decoder(st->codecpar->codec_id);
     if (decoder == NULL) {
         MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: Failed to find codec!");
         return -1;
@@ -245,9 +317,31 @@ static int netcam_open_codec(netcam_context_ptr netcam){
     }
 
 #else
-
-    netcam->rtsp->codec_context = st->codec;
-    decoder = avcodec_find_decoder(netcam->rtsp->codec_context->codec_id);
+    if (netcam->cnt->conf.is_hd_foscam == TRUE) {
+       MOTION_LOG(INF, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Setting foscam codec to CODEC_ID_H264", netcam->connect_host);
+       //netcam->rtsp->codec_context->codec_id = CODEC_ID_H264; //doesn't work, don't know why...
+       decoder = avcodec_find_decoder(CODEC_ID_H264);
+        if (!decoder) {
+            MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s No H264 codec found in this installation of libavcodec",netcam->connect_host);
+            netcam_rtsp_close_context(netcam);
+            return -1;
+        }
+        
+        MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: Found H264 codec");
+        
+        netcam->rtsp->codec_context = avcodec_alloc_context3(decoder);
+        if (!netcam->rtsp->codec_context) {
+            MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Cannot allocate H.264 codec context",netcam->connect_host);
+            av_free(netcam->rtsp->codec_context);
+            netcam_rtsp_close_context(netcam);
+            return -1;
+        }
+        
+    }
+    else {  //hmm, this seems wrong...
+        netcam->rtsp->codec_context = st->codec;
+        decoder = avcodec_find_decoder(netcam->rtsp->codec_context->codec_id);
+    }
     if (decoder == NULL) {
          MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: Failed to find codec!");
          return -1;
@@ -373,7 +467,7 @@ int netcam_read_rtsp_image(netcam_context_ptr netcam){
     struct timeval    curtime;
     netcam_buff_ptr    buffer;
     AVPacket           packet;
-    int                size_decoded;
+    int                size_decoded = 0;
 
     /* Point to our working buffer. */
     buffer = netcam->receiving;
@@ -389,20 +483,64 @@ int netcam_read_rtsp_image(netcam_context_ptr netcam){
     netcam->rtsp->startreadtime = curtime;
     netcam->rtsp->interrupted = 0;
     netcam->rtsp->status = RTSP_READINGIMAGE;
+    
+    if (netcam->cnt->conf.is_hd_foscam == TRUE) {
+        // READ FRAME HERE ***********
+        if (netcam_read_hd_foscam(netcam) < 0) {
+            MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s error reading frame from Foscam",netcam->connect_host);
+            //av_free_packet(&packet);
+            my_packet_unref(packet);
+            netcam_rtsp_close_context(netcam);
+            return -1;
+        }
+        
+        /* Point to our working buffer. */
+        //buffer = netcam->receiving;
+        packet.size = buffer->used;
+        packet.data = (uint8_t *)buffer->ptr;
+        //packet.pts = packet.dts = netcam->rtsp->tstamp;
+        //size_decoded = decode_packet(&packet, buffer, netcam->rtsp->frame, netcam->rtsp->codec_context);
+        size_decoded = rtsp_decode_packet(&packet, buffer, netcam->rtsp->frame, netcam->rtsp->codec_context);
+        
+        //MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: foscam HD decode");
+        //while (size_decoded == 0 && av_read_frame(netcam->rtsp->format_context, &packet) >= 0) {
+        while (size_decoded == 0 && netcam_read_hd_foscam(netcam) >= 0) {
+            //buffer = netcam->receiving;
+            packet.size = buffer->used;
+            packet.data = (uint8_t *)buffer->ptr;
+            //packet.pts = packet.dts = netcam->rtsp->tstamp;
+            if (packet.stream_index == netcam->rtsp->video_stream_index) {
+                //size_decoded = decode_packet(&packet, buffer, netcam->rtsp->frame, netcam->rtsp->codec_context);
+                size_decoded = rtsp_decode_packet(&packet, buffer, netcam->rtsp->frame, netcam->rtsp->codec_context);
+            }
+            my_packet_unref(packet);
+            av_init_packet(&packet);
+            packet.data = NULL;
+            packet.size = 0;
+        }
+        
+        //av_free_packet(&packet);
+        //my_packet_unref(packet);
+        //av_init_packet(&packet);
+        //packet.data = NULL;
+        //packet.size = 0;
+        
+    }
+    else {
+        /* First, check whether the codec has any frames ready to go
+         * before we feed it new packets
+         */
+        size_decoded = rtsp_decode_packet(NULL, buffer, netcam->rtsp->frame, netcam->rtsp->codec_context);
 
-    /* First, check whether the codec has any frames ready to go
-     * before we feed it new packets
-     */
-    size_decoded = rtsp_decode_packet(NULL, buffer, netcam->rtsp->frame, netcam->rtsp->codec_context);
+        while (size_decoded == 0 && av_read_frame(netcam->rtsp->format_context, &packet) >= 0) {
+            if (packet.stream_index == netcam->rtsp->video_stream_index)
+                size_decoded = rtsp_decode_packet(&packet, buffer, netcam->rtsp->frame, netcam->rtsp->codec_context);
 
-    while (size_decoded == 0 && av_read_frame(netcam->rtsp->format_context, &packet) >= 0) {
-        if (packet.stream_index == netcam->rtsp->video_stream_index)
-            size_decoded = rtsp_decode_packet(&packet, buffer, netcam->rtsp->frame, netcam->rtsp->codec_context);
-
-        my_packet_unref(packet);
-        av_init_packet(&packet);
-        packet.data = NULL;
-        packet.size = 0;
+            my_packet_unref(packet);
+            av_init_packet(&packet);
+            packet.data = NULL;
+            packet.size = 0;
+        }
     }
     netcam->rtsp->status = RTSP_CONNECTED;
 
@@ -554,30 +692,37 @@ static int netcam_rtsp_open_context(netcam_context_ptr netcam){
             MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: v4l2 video_size %s", optsize);
         }
      }
-
-    retcd = avformat_open_input(&netcam->rtsp->format_context, netcam->rtsp->path, NULL, &opts);
-    if ((retcd < 0) || (netcam->rtsp->interrupted == 1)){
-        if (netcam->rtsp->status == RTSP_NOTCONNECTED){
-            av_strerror(retcd, errstr, sizeof(errstr));
-            MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: unable to open input(%s): %s", netcam->rtsp->netcam_url, errstr);
+ 
+    //for foscam direct, do things in slightly different order. 
+    if (netcam->cnt->conf.is_hd_foscam == TRUE)
+        netcam_connect_foscam(netcam);  //connect to the low level protocol
+    else {  //Don't need to find the stream for foscam (hard coded to h264 video)
+        retcd = avformat_open_input(&netcam->rtsp->format_context, netcam->rtsp->path, NULL, &opts);
+        if ((retcd < 0) || (netcam->rtsp->interrupted == 1)){
+            if (netcam->rtsp->status == RTSP_NOTCONNECTED){
+                av_strerror(retcd, errstr, sizeof(errstr));
+                MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: unable to open input(%s): %s", netcam->rtsp->netcam_url, errstr);
+            }
+            av_dict_free(&opts);
+            //The format context gets freed upon any error from open_input.
+            return (retcd < 0) ? retcd : -1;
         }
-        av_dict_free(&opts);
-        //The format context gets freed upon any error from open_input.
-        return (retcd < 0) ? retcd : -1;
-    }
-    av_dict_free(&opts);
+        //av_dict_free(&opts);  //foscam version frees this later
 
-    // fill out stream information
-    retcd = avformat_find_stream_info(netcam->rtsp->format_context, NULL);
-    if ((retcd < 0) || (netcam->rtsp->interrupted == 1)){
-        if (netcam->rtsp->status == RTSP_NOTCONNECTED){
-            av_strerror(retcd, errstr, sizeof(errstr));
-            MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: unable to find stream info: %s", errstr);
+        // fill out stream information
+        retcd = avformat_find_stream_info(netcam->rtsp->format_context, NULL);
+        if ((retcd < 0) || (netcam->rtsp->interrupted == 1)){
+            if (netcam->rtsp->status == RTSP_NOTCONNECTED){
+                av_strerror(retcd, errstr, sizeof(errstr));
+                MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s unable to find stream info: %s", netcam->connect_host, errstr);
+            }
+            netcam_rtsp_close_context(netcam);
+            return -1;
         }
-        netcam_rtsp_close_context(netcam);
-        return -1;
     }
 
+    av_dict_free(&opts);    //free opts here for foscam
+    
     /* there is no way to set the avcodec thread names, but they inherit
      * our thread name - so temporarily change our thread name to the
      * desired name */
@@ -597,42 +742,68 @@ static int netcam_rtsp_open_context(netcam_context_ptr netcam){
 
         MOTION_PTHREAD_SETNAME(curtname);
     }
-
+      
     if ((retcd < 0) || (netcam->rtsp->interrupted == 1)){
         if (netcam->rtsp->status == RTSP_NOTCONNECTED){
             av_strerror(retcd, errstr, sizeof(errstr));
-            MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: unable to open codec context: %s", errstr);
+            MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s unable to open codec context: %s",netcam->connect_host, errstr);
         }
         netcam_rtsp_close_context(netcam);
         return -1;
     }
+    
+    if (netcam->cnt->conf.is_hd_foscam == TRUE) {   //to get the image size, we need to read from the camera (this sets the height and width)
+        netcam->rtsp->frame = my_frame_alloc();
+        if (netcam->rtsp->frame == NULL) {
+            if (netcam->rtsp->status == RTSP_NOTCONNECTED){
+                MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s unable to allocate frame.  Fatal error.  Check FFmpeg/Libav configuration", netcam->connect_host);
+            }
+            netcam_rtsp_close_context(netcam);
+            return -1;
+        }
 
+        /*
+         *  Validate that the previous steps opened the camera
+         */
+        retcd = netcam_read_rtsp_image(netcam);
+        if ((retcd < 0) || (netcam->rtsp->interrupted == 1)){
+            if (netcam->rtsp->status == RTSP_NOTCONNECTED){
+                MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Failed to read first image",netcam->connect_host);
+            }
+            netcam_rtsp_close_context(netcam);
+            return -1;
+        }
+    }
+    
     if (netcam->rtsp->codec_context->width <= 0 ||
         netcam->rtsp->codec_context->height <= 0)
     {
-        MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: Camera image size is invalid");
+        MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Camera image size is invalid",netcam->connect_host);
         netcam_rtsp_close_context(netcam);
         return -1;
     }
 
+    //already did this for foscam
+    if (netcam->cnt->conf.is_hd_foscam == FALSE) {
     netcam->rtsp->frame = my_frame_alloc();
-    if (netcam->rtsp->frame == NULL) {
-        if (netcam->rtsp->status == RTSP_NOTCONNECTED){
-            MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: unable to allocate frame.  Fatal error.  Check FFmpeg/Libav configuration");
+        if (netcam->rtsp->frame == NULL) {
+            if (netcam->rtsp->status == RTSP_NOTCONNECTED){
+                MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s unable to allocate frame.  Fatal error.  Check FFmpeg/Libav configuration", netcam->connect_host);
+            }
+            netcam_rtsp_close_context(netcam);
+            return -1;
         }
-        netcam_rtsp_close_context(netcam);
-        return -1;
     }
 
     if (netcam_rtsp_open_sws(netcam) < 0) return -1;
 
     /*
-     *  Validate that the previous steps opened the camera
+     *  Validate that the previous steps opened the camera (read again for foscam, but doesn't hurt)
      */
     retcd = netcam_read_rtsp_image(netcam);
     if ((retcd < 0) || (netcam->rtsp->interrupted == 1)){
         if (netcam->rtsp->status == RTSP_NOTCONNECTED){
-            MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: Failed to read first image");
+            MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Failed to read first image",netcam->connect_host);
         }
         netcam_rtsp_close_context(netcam);
         return -1;
@@ -843,7 +1014,7 @@ int netcam_connect_rtsp(netcam_context_ptr netcam){
 
     netcam->rtsp->status = RTSP_CONNECTED;
 
-    MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: Camera connected");
+    MOTION_LOG(NTC, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Camera connected",netcam->connect_host);
 
     return 0;
 
@@ -1059,4 +1230,106 @@ int netcam_next_rtsp(unsigned char *image , netcam_context_ptr netcam){
         rotate_map(netcam->cnt, image);
 
     return 0;
+}
+
+/**
+* netcam_init_decode_H264
+*
+*    This function creates the foscam codec_context
+*    DEPRECIATED - now included in open_context
+*
+* Parameters
+*
+*       netcam  The netcam context to free.
+*       url     The URL of the camera
+*
+* Returns:
+*       Failure    -1
+*       Success    0(zero)
+*
+*/
+int netcam_init_decode_H264(netcam_context_ptr netcam){
+#ifdef HAVE_FFMPEG
+    AVCodec *h264Codec;
+    
+    MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Initializing codec_context", netcam->connect_host);
+    
+    avcodec_register_all();
+    
+    h264Codec = avcodec_find_decoder(CODEC_ID_H264);
+	if (!h264Codec) {
+		MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s No H264 codec found in this installation of libavcodec",netcam->connect_host);
+        netcam_rtsp_close_context(netcam);
+		return -1;
+    }
+    
+    //MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: Found H264 codec");
+    
+    netcam->rtsp->codec_context = avcodec_alloc_context3(h264Codec);
+	if (!netcam->rtsp->codec_context) {
+		MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Cannot allocate H.264 codec context",netcam->connect_host);
+        av_free(netcam->rtsp->codec_context);
+        netcam_rtsp_close_context(netcam);
+		return -1;
+	}
+    
+    //MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: Allocated codec context");
+    
+    if (avcodec_open2(netcam->rtsp->codec_context, h264Codec, NULL) < 0) {
+		MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Cannot open H.264 codec with set avcC",netcam->connect_host);
+        av_free(netcam->rtsp->codec_context);
+        netcam_rtsp_close_context(netcam);
+		return -1;
+	}
+    
+    MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Opened codec context",netcam->connect_host);
+    
+    return 0;
+
+#else  /* No FFmpeg/Libav */
+    MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: FFmpeg/Libav not found on computer.  No RTSP support");
+    return -1;
+#endif /* End #ifdef HAVE_FFMPEG */
+}
+
+
+int netcam_connect_foscam(netcam_context_ptr netcam){
+#ifdef HAVE_FFMPEG
+
+
+    /*
+     * The H264 context should be all ready to attempt a connection with
+     * the server, so we try ....
+     */
+     
+    MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s HD Foscam selected", netcam->connect_host);
+    
+    /* initialize rbuf structure */
+    netcam->response = mymalloc(sizeof(struct rbuf)); 
+    
+    if (netcam_connect(netcam, 0) < 0 ) {
+        MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Camera connect failed %s", netcam->connect_host,netcam->connect_request);
+        return -1;
+    }
+    
+    netcam->connect_request = connect_req_foscamhd;
+
+    //MOTION_LOG(INF , TYPE_NETCAM, NO_ERRNO, "%s: Camera connect"
+    //       " string is ''%s'' End of camera connect string.",
+    //       netcam->connect_request);
+    
+    if (netcam_hd_foscam_start_stream(netcam) <0) {
+        MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: cam: %s Camera connect failed", netcam->connect_host);
+        return -1;
+        }
+
+    netcam->rtsp->status = RTSP_CONNECTED;    
+    
+    return 0;
+
+
+#else  /* No FFmpeg/Libav */
+    MOTION_LOG(ERR, TYPE_NETCAM, NO_ERRNO, "%s: FFmpeg/Libav not found on computer.  No RTSP support");
+    return -1;
+#endif /* End #ifdef HAVE_FFMPEG */
 }

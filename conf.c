@@ -138,6 +138,8 @@ struct config conf_template = {
     .netcam_proxy =                    NULL,
     .netcam_tolerant_check =           0,
     .rtsp_uses_tcp =                   1,
+    .is_hd_foscam =                    0,
+    .hd_foscam_stream =                1,
 #ifdef HAVE_MMAL
     mmalcam_name:                   NULL,
     mmalcam_control_params:         NULL,
@@ -416,6 +418,24 @@ config_param config_params[] = {
     CONF_OFFSET(rtsp_uses_tcp),
     copy_bool,
     print_bool
+    },
+    {
+    "is_hd_foscam",
+    "# use HD Foscam low level communication protocol. Much more reliable and faster than RTSP.\n"
+    "# Default: off",
+    0,
+    CONF_OFFSET(is_hd_foscam),
+    copy_bool,
+    print_bool
+    },
+    {
+    "hd_foscam_stream",
+    "# Select stream for use with Foscam low level HD protocol. 0 = videoMain 1 = videoSub.\n"
+    "# Default: 1",
+    0,
+    CONF_OFFSET(hd_foscam_stream),
+    copy_int,
+    print_int
     },
 #ifdef HAVE_MMAL
     {
@@ -875,6 +895,7 @@ config_param config_params[] = {
     "# %i and %J = width and height of motion area,\n"
     "# %K and %L = X and Y coordinates of motion center\n"
     "# %C = value defined by text_event - do not use with text_event!\n"
+    "# %a = Auto-Track Status\n"
     "# You can put quotation marks around the text to allow\n"
     "# leading spaces\n"
     "############################################################\n\n"
@@ -1177,7 +1198,7 @@ config_param config_params[] = {
     "\n############################################################\n"
     "# Tracking (Pan/Tilt)\n"
     "############################################################\n\n"
-    "# Type of tracker (0=none (default), 1=stepper, 2=iomojo, 3=pwc, 4=generic, 5=uvcvideo, 6=servo)\n"
+    "# Type of tracker (0=none (default), 1=stepper, 2=iomojo, 3=pwc, 4=generic, 5=uvcvideo, 6=servo, 7=foscam HD)\n"
     "# The generic type enables the definition of motion center and motion size to\n"
     "# be used with the conversion specifiers for options like on_motion_detected",
     0,
@@ -1283,7 +1304,7 @@ config_param config_params[] = {
     },
     {
     "track_iomojo_id",
-    "# ID of an iomojo camera if used (default: 0)",
+    "# ID of an iomojo camera if used (default: 0), in foscam used for home time period in seconds (ie time camera takes to move to home position)",
     0,
     TRACK_OFFSET(iomojo_id),
     copy_int,
@@ -1320,7 +1341,10 @@ config_param config_params[] = {
     },
     {
     "track_speed",
-    "# Speed to set the motor to (stepper motor option) (default: 255)",
+    "# Speed to set the motor to (stepper motor option) (default: 255)"
+    "# or foscam PAN speed (default: 0)\n"
+    "# meaning px/sec. when FOSCAM_HD external own PTz speed is set to 0 (nomal).\n"
+    "# a good speed is about 100",
     0,
     TRACK_OFFSET(speed),
     copy_int,
@@ -1333,6 +1357,15 @@ config_param config_params[] = {
     TRACK_OFFSET(stepsize),
     copy_int,
     print_int
+    },
+    {
+	"track_home_pos_name",
+    "# Position defined as named set point e.g Front Door or Home\n"
+    "# Default: not defined (Disabled)",
+    0,
+    TRACK_OFFSET(track_home_pos_name),
+    copy_string,
+    print_string
     },
     {
     "quiet",

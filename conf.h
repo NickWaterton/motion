@@ -128,6 +128,8 @@ struct config {
     const char *netcam_proxy;
     unsigned int netcam_tolerant_check;
     unsigned int rtsp_uses_tcp;
+    int is_hd_foscam;
+    int hd_foscam_stream;
 #ifdef HAVE_MMAL
     const char *mmalcam_name;
     const char *mmalcam_control_params;

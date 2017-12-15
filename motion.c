@@ -592,7 +592,7 @@ static void process_image_ring(struct context *cnt, unsigned int max_images)
         cnt->current_image = &cnt->imgs.image_ring[cnt->imgs.image_ring_out];
 
         if (cnt->imgs.image_ring[cnt->imgs.image_ring_out].shot < cnt->conf.frame_limit) {
-            if (cnt->log_level >= DBG) {
+            //if (cnt->log_level >= EMG) {    //was DBG
                 char tmp[32];
                 const char *t;
 
@@ -609,11 +609,11 @@ static void process_image_ring(struct context *cnt, unsigned int max_images)
 
                 mystrftime(cnt, tmp, sizeof(tmp), "%H%M%S-%q",
                            &cnt->imgs.image_ring[cnt->imgs.image_ring_out].timestamp_tv, NULL, 0);
-                draw_text(cnt->imgs.image_ring[cnt->imgs.image_ring_out].image, 10, 20,
+                draw_text(cnt->imgs.image_ring[cnt->imgs.image_ring_out].image, 10, 55,
                           cnt->imgs.width, tmp, cnt->conf.text_double);
-                draw_text(cnt->imgs.image_ring[cnt->imgs.image_ring_out].image, 10, 30,
+                draw_text(cnt->imgs.image_ring[cnt->imgs.image_ring_out].image, 10, 65,
                           cnt->imgs.width, t, cnt->conf.text_double);
-            }
+            //}
 
             /* Output the picture to jpegs and ffmpeg */
             event(cnt, EVENT_IMAGE_DETECTED,
@@ -1964,14 +1964,21 @@ static void mlp_overlay(struct context *cnt){
 
     /* Add changed pixels in upper right corner of the pictures */
     if (cnt->conf.text_changes) {
-        if (!cnt->pause)
+        if (!cnt->pause && cnt->moved == 0)
             sprintf(tmp, "%d", cnt->current_image->diffs);
         else
-            sprintf(tmp, "-");
+            sprintf(tmp, "Pause %d %d", cnt->moved, cnt->current_image->diffs);
 
         draw_text(cnt->current_image->image, cnt->imgs.width - 10, 10,
                   cnt->imgs.width, tmp, cnt->conf.text_double);
+                  
+        if (cnt->track.active) {
+            sprintf(tmp, "x=%d, y=%d", cnt->track.abs_x, cnt->track.abs_y);
+            draw_text(cnt->current_image->image, cnt->imgs.width - 10, 20,
+                      cnt->imgs.width, tmp, cnt->conf.text_double);
+        }
     }
+
 
     /*
      * Add changed pixels to motion-images (for stream) in setup_mode
@@ -3504,16 +3511,33 @@ size_t mystrftime(const struct context *cnt, char *s, size_t max, const char *us
             case 'h': // picture height
                 sprintf(tempstr, "%*d", width, cnt->imgs.height);
                 break;
+                
+            case '%': //just a % symbol
+                sprintf(tempstr, "%%%%");
+                break;
 
             case 'f': // filename -- or %fps
                 if ((*(pos_userformat+1) == 'p') && (*(pos_userformat+2) == 's')) {
-                    sprintf(tempstr, "%*d", width, cnt->movie_fps);
+                    sprintf(tempstr, "%*d", width, cnt->lastrate); //was cnt->movie_fps, but actual framerate is better
                     pos_userformat += 2;
                     break;
                 }
 
                 if (filename)
                     snprintf(tempstr, PATH_MAX, "%*s", width, filename);
+                else
+                    ++pos_userformat;
+                break;
+                
+            case 'a': //autotrack status
+                if(cnt->track.active == 1) //auto-track normal
+                    snprintf(tempstr, PATH_MAX, "%*s", width, "Auto-Track ON");
+                else if (cnt->track.active == 2) //auto-track tracking
+                    snprintf(tempstr, PATH_MAX, "%*s %d", width, "tracking", cnt->moved);
+                else if (cnt->track.active == 3) //auto-track home/centering
+                    snprintf(tempstr, PATH_MAX, "%*s", width, "Centering");
+                else if (cnt->track.active == 4) //auto-track calibrating
+                    snprintf(tempstr, PATH_MAX, "%*s", width, "Calibrating");
                 else
                     ++pos_userformat;
                 break;

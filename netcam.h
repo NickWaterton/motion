@@ -273,6 +273,9 @@ typedef struct netcam_context {
 #define MJPG_MH_MAGIC          "MJPG"
 #define MJPG_MH_MAGIC_SIZE          4
 
+#define FOSC_MAGIC             "FOSC"
+#define FOSC_MAGIC_SIZE             4
+
 /*
  * MJPG Chunk header for MJPG streaming.
  * Little-endian data is read from the network.
@@ -293,6 +296,65 @@ typedef struct {
 } mjpg_header;
 
 /*
+* HD Foscam send camera on command structure
+*/
+#pragma pack(1)   // this helps to pack the struct to bytes
+typedef struct {
+    int command;                           /* command, 0 is start video */
+    char magic[FOSC_MAGIC_SIZE];           /* must contain the string FOSC
+                                              not null-terminated. */
+    unsigned int len_data;                 /* Total size of the current 
+                                              data being sent in bytes  - not including command header here 161 bytes*/
+    char stream;                           /* video stream, 0 = Main or 1 = Sub */
+    char username[64];                     /* login name */
+    char passwd[64];                       /* password */
+    int uid;                               /* random uid to identify sesion */
+    char reserved[28];                     /* Unknown data, seems to be
+                                              all 0 */
+} fosc_command_vid_on;
+#pragma pack(0)   // turn packing off
+
+/*
+* HD Foscam send camera off command structure
+*/
+#pragma pack(1)   // this helps to pack the struct to bytes
+typedef struct {
+    int command;                           /* command, 1 is stop video */
+    char magic[FOSC_MAGIC_SIZE];           /* must contain the string FOSC
+                                              not null-terminated. */
+    unsigned int len_data;                 /* Total size of the current 
+                                              data being sent in bytes  - not including command header here 129 bytes*/
+    char stop;                             /* always 0 */
+    char username[64];                     /* login name */
+    char passwd[64];                       /* password */
+} fosc_command_vid_off;
+#pragma pack(0)   // turn packing off
+
+/*
+ * HD Foscam received header
+ */
+typedef struct {
+    int command;                           /* command, 26 is video frame */
+    char magic[FOSC_MAGIC_SIZE];           /* must contain the string FOSC
+                                              not null-terminated. */
+    unsigned int datasize;                /* Total size of the following data in bytes */
+} fosc_header;
+
+/*
+ * HD Foscam video header
+ */
+typedef struct {
+    long tstamp;
+    int frame_size;
+    int stream;
+    int isKeyFrame;
+    int width;
+    int height;
+    int frameRate;
+    int videoBitRate;
+} fosc_video_header;
+
+/*
  * Declare prototypes for our external entry points
  */
 /*     Within netcam_jpeg.c    */
@@ -305,6 +367,7 @@ int netcam_next (struct context *, unsigned char *);
 void netcam_cleanup (struct netcam_context *, int);
 ssize_t netcam_recv(netcam_context_ptr, void *, size_t);
 void netcam_url_free(struct url_t *parse_url);
+//static void netcam_disconnect(netcam_context_ptr netcam);
 
 /**
  * Publish new image
