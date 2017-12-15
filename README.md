@@ -4,6 +4,12 @@ Motion
 ## Status
 The build status from travis-ci for the master branch is: [![Build Status](https://travis-ci.org/Motion-Project/motion.svg?branch=master)](https://travis-ci.org/Motion-Project/motion)
 
+## Nick's Build
+
+Branch 4.0 has been modified to include new options is_hd_foscam and hd_foscam_stream. These (when enabled) allow the low level Foscam protocol to be used in place of RTSP. This results in very fast video, with no lag, as the video is pulled using the undocumented FOSCAM HD direct access protocol. Stream allows you to select 0/1 (HD or low res stream) to be processed by motion.
+
+Also added is autotracking for Foscam PTZ cameras, that will automatically track motion.
+
 ## Description
 
 Motion is a program that monitors the video signal from one or more cameras and
