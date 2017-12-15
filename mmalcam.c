@@ -24,8 +24,8 @@
 #include "motion.h"
 #include "rotate.h"
 
-#define MMALCAM_OK		0
-#define MMALCAM_ERROR	-1
+#define MMALCAM_OK        0
+#define MMALCAM_ERROR    -1
 
 #define MMAL_CAMERA_PREVIEW_PORT 0
 #define MMAL_CAMERA_VIDEO_PORT 1
@@ -259,7 +259,7 @@ int mmalcam_start(struct context *cnt)
     mmalcam = cnt->mmalcam;
     mmalcam->cnt = cnt;
 
-    MOTION_LOG(ALR, TYPE_VIDEO, NO_ERRNO,
+    MOTION_LOG(NTC, TYPE_VIDEO, NO_ERRNO,
             "%s: MMAL Camera thread starting... for camera (%s) of %d x %d at %d fps",
             cnt->conf.mmalcam_name, cnt->conf.width, cnt->conf.height, cnt->conf.frame_limit);
 
@@ -330,7 +330,7 @@ int mmalcam_start(struct context *cnt)
  */
 void mmalcam_cleanup(struct mmalcam_context *mmalcam)
 {
-    MOTION_LOG(ALR, TYPE_VIDEO, NO_ERRNO, "MMAL Camera cleanup");
+    MOTION_LOG(NTC, TYPE_VIDEO, NO_ERRNO, "MMAL Camera cleanup");
 
     if (mmalcam != NULL ) {
         if (mmalcam->camera_component) {
@@ -396,7 +396,7 @@ int mmalcam_next(struct context *cnt, unsigned char *map)
             MOTION_LOG(ERR, TYPE_VIDEO, NO_ERRNO, "Unable to return a buffer to the camera video port");
     }
 
-    if (cnt->rotate_data.degrees > 0)
+    if (cnt->rotate_data.degrees > 0 || cnt->rotate_data.axis != FLIP_TYPE_NONE)
         rotate_map(cnt, map);
 
     return 0;

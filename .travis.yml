@@ -1,6 +1,5 @@
 before_script:
   - autoreconf -fiv
-  - avplay -version
 script: ./configure && make
 
 matrix:
@@ -13,17 +12,14 @@ matrix:
         packages:
         - libavformat-dev
         - libavcodec-dev
-        - libav-tools
         - libavutil-dev
         - libswscale-dev
-        - ffmpeg
+        - libavdevice-dev
         - libjpeg8-dev
-        - libv4l-dev
         - libzip-dev
   - os: linux
     language: c
     compiler: gcc
-    sudo: rquired
     dist: trusty
     addons:
       apt:
@@ -32,11 +28,9 @@ matrix:
         packages:
         - libavformat-dev
         - libavcodec-dev
-        - libav-tools
         - libavutil-dev
         - libswscale-dev
-        - ffmpeg
+        - libavdevice-dev
         - libjpeg8-dev
-        - libv4l-dev
         - libzip-dev
 

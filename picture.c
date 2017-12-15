@@ -14,7 +14,11 @@
 
 #include <assert.h>
 
-#undef HAVE_STDLIB_H
+#ifdef HAVE_WEBP
+#include <webp/encode.h>
+#include <webp/mux.h>
+#endif /* HAVE_WEBP */
+
 #include <jpeglib.h>
 #include <jerror.h>
 
@@ -171,21 +175,21 @@ struct tiff_writing {
 static void put_direntry(struct tiff_writing *into, const char *data, unsigned length)
 {
     if (length <= 4) {
-	    /* Entries that fit in the directory entry are stored there */
-	    memset(into->buf, 0, 4);
-	    memcpy(into->buf, data, length);
+        /* Entries that fit in the directory entry are stored there */
+        memset(into->buf, 0, 4);
+        memcpy(into->buf, data, length);
     } else {
-	    /* Longer entries are stored out-of-line */
-	    unsigned offset = into->data_offset;
+        /* Longer entries are stored out-of-line */
+        unsigned offset = into->data_offset;
 
         while ((offset & 0x03) != 0) {  /* Alignment */
-	        into->base[offset] = 0;
-	        offset ++;
-	    }
+            into->base[offset] = 0;
+            offset ++;
+        }
 
-	    put_uint32(into->buf, offset);
-	    memcpy(into->base + offset, data, length);
-	    into->data_offset = offset + length;
+        put_uint32(into->buf, offset);
+        memcpy(into->base + offset, data, length);
+        into->data_offset = offset + length;
     }
 }
 
@@ -222,28 +226,30 @@ static void put_subjectarea(struct tiff_writing *into, const struct coord *box)
  * any image data is written by jpeg_write_scanlines().
  */
 static void put_jpeg_exif(j_compress_ptr cinfo,
-			  const struct context *cnt,
-			  const struct tm *timestamp,
-			  const struct coord *box)
+              const struct context *cnt,
+              const struct timeval *tv1,
+              const struct coord *box)
 {
     /* description, datetime, and subtime are the values that are actually
      * put into the EXIF data
     */
     char *description, *datetime, *subtime;
     char datetime_buf[22];
+    struct tm timestamp_tm;
 
-    if (timestamp) {
-	/* Exif requires this exact format */
-	    snprintf(datetime_buf, 21, "%04d:%02d:%02d %02d:%02d:%02d",
-		        timestamp->tm_year + 1900,
-		        timestamp->tm_mon + 1,
-		        timestamp->tm_mday,
-		        timestamp->tm_hour,
-		        timestamp->tm_min,
-		        timestamp->tm_sec);
-	    datetime = datetime_buf;
+    if (tv1->tv_sec) {
+        localtime_r(&tv1->tv_sec, &timestamp_tm);
+    /* Exif requires this exact format */
+        snprintf(datetime_buf, 21, "%04d:%02d:%02d %02d:%02d:%02d",
+                timestamp_tm.tm_year + 1900,
+                timestamp_tm.tm_mon + 1,
+                timestamp_tm.tm_mday,
+                timestamp_tm.tm_hour,
+                timestamp_tm.tm_min,
+                timestamp_tm.tm_sec);
+        datetime = datetime_buf;
     } else {
-	    datetime = NULL;
+        datetime = NULL;
     }
 
     // TODO: Extract subsecond timestamp from somewhere, but only
@@ -251,12 +257,10 @@ static void put_jpeg_exif(j_compress_ptr cinfo,
     subtime = NULL;
 
     if (cnt->conf.exif_text) {
-	    description = malloc(PATH_MAX);
-	    mystrftime(cnt, description, PATH_MAX-1,
-		        cnt->conf.exif_text,
-		        timestamp, NULL, 0);
+        description = malloc(PATH_MAX);
+        mystrftime(cnt, description, PATH_MAX-1, cnt->conf.exif_text, tv1, NULL, 0);
     } else {
-	    description = NULL;
+        description = NULL;
     }
 
     /* Calculate an upper bound on the size of the APP1 marker so
@@ -269,52 +273,52 @@ static void put_jpeg_exif(j_compress_ptr cinfo,
     unsigned datasize = 0;
 
     if (description) {
-	    ifd0_tagcount ++;
-	    datasize += 5 + strlen(description); /* Add 5 for NUL and alignment */
+        ifd0_tagcount ++;
+        datasize += 5 + strlen(description); /* Add 5 for NUL and alignment */
     }
 
     if (datetime) {
-	/* We write this to both the TIFF datetime tag (which most programs
-	 * treat as "last-modified-date") and the EXIF "time of creation of
-	 * original image" tag (which many programs ignore). This is
-	 * redundant but seems to be the thing to do.
-	 */
-	    ifd0_tagcount++;
-	    ifd1_tagcount++;
-	    /* We also write the timezone-offset tag in IFD0 */
-	    ifd0_tagcount++;
-	    /* It would be nice to use the same offset for both tags' values,
-	    * but I don't want to write the bookkeeping for that right now */
-	    datasize += 2 * (5 + strlen(datetime));
+    /* We write this to both the TIFF datetime tag (which most programs
+     * treat as "last-modified-date") and the EXIF "time of creation of
+     * original image" tag (which many programs ignore). This is
+     * redundant but seems to be the thing to do.
+     */
+        ifd0_tagcount++;
+        ifd1_tagcount++;
+        /* We also write the timezone-offset tag in IFD0 */
+        ifd0_tagcount++;
+        /* It would be nice to use the same offset for both tags' values,
+        * but I don't want to write the bookkeeping for that right now */
+        datasize += 2 * (5 + strlen(datetime));
     }
 
     if (subtime) {
-	    ifd1_tagcount++;
-	    datasize += 5 + strlen(subtime);
+        ifd1_tagcount++;
+        datasize += 5 + strlen(subtime);
     }
 
     if (box) {
-	    ifd1_tagcount++;
-	    datasize += 2 * 4;  /* Four 16-bit ints */
+        ifd1_tagcount++;
+        datasize += 2 * 4;  /* Four 16-bit ints */
     }
 
     if (ifd1_tagcount > 0) {
-	    /* If we're writing the Exif sub-IFD, account for the
-	    * two tags that requires */
-	    ifd0_tagcount ++; /* The tag in IFD0 that points to IFD1 */
-	    ifd1_tagcount ++; /* The EXIF version tag */
+        /* If we're writing the Exif sub-IFD, account for the
+        * two tags that requires */
+        ifd0_tagcount ++; /* The tag in IFD0 that points to IFD1 */
+        ifd1_tagcount ++; /* The EXIF version tag */
     }
 
     /* Each IFD takes 12 bytes per tag, plus six more (the tag count and the
      * pointer to the next IFD, always zero in our case)
      */
     unsigned int ifds_size =
-	( ifd1_tagcount > 0 ? ( 12 * ifd1_tagcount + 6 ) : 0 ) +
-	( ifd0_tagcount > 0 ? ( 12 * ifd0_tagcount + 6 ) : 0 );
+    ( ifd1_tagcount > 0 ? ( 12 * ifd1_tagcount + 6 ) : 0 ) +
+    ( ifd0_tagcount > 0 ? ( 12 * ifd0_tagcount + 6 ) : 0 );
 
     if (ifds_size == 0) {
-	    /* We're not actually going to write any information. */
-	    return;
+        /* We're not actually going to write any information. */
+        return;
     }
 
     unsigned int buffer_size = 6 /* EXIF marker signature */ +
@@ -326,9 +330,9 @@ static void put_jpeg_exif(j_compress_ptr cinfo,
     memcpy(marker, exif_marker_start, 14); /* EXIF and TIFF headers */
 
     struct tiff_writing writing = (struct tiff_writing) {
-	.base = marker + 6, /* base address for intra-TIFF offsets */
-	.buf = marker + 14, /* current write position */
-	.data_offset = 8 + ifds_size, /* where to start storing data */
+    .base = marker + 6, /* base address for intra-TIFF offsets */
+    .buf = marker + 14, /* current write position */
+    .data_offset = 8 + ifds_size, /* where to start storing data */
     };
 
     /* Write IFD 0 */
@@ -337,22 +341,22 @@ static void put_jpeg_exif(j_compress_ptr cinfo,
     writing.buf += 2;
 
     if (description)
-	    put_stringentry(&writing, TIFF_TAG_IMAGE_DESCRIPTION, description, 0);
+        put_stringentry(&writing, TIFF_TAG_IMAGE_DESCRIPTION, description, 0);
 
     if (datetime)
-	    put_stringentry(&writing, TIFF_TAG_DATETIME, datetime, 1);
+        put_stringentry(&writing, TIFF_TAG_DATETIME, datetime, 1);
 
     if (ifd1_tagcount > 0) {
-	    /* Offset of IFD1 - TIFF header + IFD0 size. */
-	    unsigned ifd1_offset = 8 + 6 + ( 12 * ifd0_tagcount );
-	    memcpy(writing.buf, exif_subifd_tag, 8);
-	    put_uint32(writing.buf + 8, ifd1_offset);
-	    writing.buf += 12;
+        /* Offset of IFD1 - TIFF header + IFD0 size. */
+        unsigned ifd1_offset = 8 + 6 + ( 12 * ifd0_tagcount );
+        memcpy(writing.buf, exif_subifd_tag, 8);
+        put_uint32(writing.buf + 8, ifd1_offset);
+        writing.buf += 12;
     }
 
     if (datetime) {
         memcpy(writing.buf, exif_tzoffset_tag, 12);
-        put_sint16(writing.buf+8, timestamp->tm_gmtoff / 3600);
+        put_sint16(writing.buf+8, timestamp_tm.tm_gmtoff / 3600);
         writing.buf += 12;
     }
 
@@ -361,23 +365,23 @@ static void put_jpeg_exif(j_compress_ptr cinfo,
 
     /* Write IFD 1 */
     if (ifd1_tagcount > 0) {
-	    /* (remember that the tags in any IFD must be in numerical order
-	    * by tag) */
-	    put_uint16(writing.buf, ifd1_tagcount);
-	    memcpy(writing.buf + 2, exif_version_tag, 12); /* tag 0x9000 */
-	    writing.buf += 14;
+        /* (remember that the tags in any IFD must be in numerical order
+        * by tag) */
+        put_uint16(writing.buf, ifd1_tagcount);
+        memcpy(writing.buf + 2, exif_version_tag, 12); /* tag 0x9000 */
+        writing.buf += 14;
 
-	    if (datetime)
-	        put_stringentry(&writing, EXIF_TAG_ORIGINAL_DATETIME, datetime, 1);
+        if (datetime)
+            put_stringentry(&writing, EXIF_TAG_ORIGINAL_DATETIME, datetime, 1);
 
         if (box)
-	        put_subjectarea(&writing, box);
+            put_subjectarea(&writing, box);
 
         if (subtime)
-	        put_stringentry(&writing, EXIF_TAG_ORIGINAL_DATETIME_SS, subtime, 0);
+            put_stringentry(&writing, EXIF_TAG_ORIGINAL_DATETIME_SS, subtime, 0);
 
-	    put_uint32(writing.buf, 0); /* Next IFD = 0 (no next IFD) */
-	    writing.buf += 4;
+        put_uint32(writing.buf, 0); /* Next IFD = 0 (no next IFD) */
+        writing.buf += 4;
     }
 
     /* We should have met up with the OOL data */
@@ -413,8 +417,8 @@ static void put_jpeg_exif(j_compress_ptr cinfo,
  * Returns buffer size of jpeg image
  */
 static int put_jpeg_yuv420p_memory(unsigned char *dest_image, int image_size,
-				   unsigned char *input_image, int width, int height, int quality,
-				   struct context *cnt, struct tm *tm, struct coord *box)
+                   unsigned char *input_image, int width, int height, int quality,
+                   struct context *cnt, struct timeval *tv1, struct coord *box)
 
 {
     int i, j, jpeg_image_size;
@@ -452,14 +456,14 @@ static int put_jpeg_yuv420p_memory(unsigned char *dest_image, int image_size,
 
     jpeg_set_quality(&cinfo, quality, TRUE);
     cinfo.dct_method = JDCT_FASTEST;
-    
+
     _jpeg_mem_dest(&cinfo, dest_image, image_size);  // Data written to mem
-    
+
 
     jpeg_start_compress(&cinfo, TRUE);
 
-    put_jpeg_exif(&cinfo, cnt, tm, box);
-    
+    put_jpeg_exif(&cinfo, cnt, tv1, box);
+
     /* If the image is not a multiple of 16, this overruns the buffers
      * we'll just pad those last bytes with zeros
      */
@@ -469,13 +473,13 @@ static int put_jpeg_yuv420p_memory(unsigned char *dest_image, int image_size,
                 y[i] = input_image + width * (i + j);
                 if (i % 2 == 0) {
                     cb[i / 2] = input_image + width * height + width / 2 * ((i + j) /2);
-                    cr[i / 2] = input_image + width * height + width * height / 4 + width / 2 * ((i + j) / 2);                
+                    cr[i / 2] = input_image + width * height + width * height / 4 + width / 2 * ((i + j) / 2);
                 }
             } else {
                 y[i] = 0x00;
                 cb[i] = 0x00;
                 cr[i] = 0x00;
-            }    
+            }
         }
         jpeg_write_raw_data(&cinfo, data, 16);
     }
@@ -540,6 +544,80 @@ static int put_jpeg_grey_memory(unsigned char *dest_image, int image_size, unsig
     return dest_image_size;
 }
 
+#ifdef HAVE_WEBP
+/**
+ * put_webp_yuv420p_file
+ *      Converts an YUV420P coded image to a webp image and writes
+ *      it to an already open file.
+ *
+ * Inputs:
+ * - image is the image in YUV420P format.
+ * - width and height are the dimensions of the image
+ * - quality is the webp encoding quality 0-100%
+ *
+ * Output:
+ * - The webp is written directly to the file given by the file pointer fp
+ *
+ * Returns nothing
+ */
+static void put_webp_yuv420p_file(FILE *fp,
+                  unsigned char *image, int width, int height,
+                  int quality)
+{
+    /* Create a config present and check for compatible library version */
+    WebPConfig webp_config;
+    if (!WebPConfigPreset(&webp_config, WEBP_PRESET_DEFAULT, (float) quality)){
+        MOTION_LOG(ERR, TYPE_CORE, NO_ERRNO, "libwebp version error");
+        return;
+    }
+
+    /* Create the input data structure and check for compatible library version */
+    WebPPicture webp_image;
+    if (!WebPPictureInit(&webp_image)){
+        MOTION_LOG(ERR, TYPE_CORE, NO_ERRNO, "libwebp version error");
+        return;
+    }
+
+    /* Allocate the image buffer based on image width and height */
+    webp_image.width = width;
+    webp_image.height = height;
+    if (!WebPPictureAlloc(&webp_image)){
+        MOTION_LOG(ERR, TYPE_CORE, NO_ERRNO, "libwebp image buffer allocation error");
+        return;
+    }
+
+    /* Map the input YUV420P buffer as individual Y, U and V pointers */
+    webp_image.y = image;
+    webp_image.u = image + width * height;
+    webp_image.v = webp_image.u + (width * height) / 4;
+
+    /* Setup the memory writting method */
+    WebPMemoryWriter webp_writer;
+    WebPMemoryWriterInit(&webp_writer);
+    webp_image.writer = WebPMemoryWrite;
+    webp_image.custom_ptr = (void*) &webp_writer;
+
+    /* Encode the YUV image as webp */
+    if (!WebPEncode(&webp_config, &webp_image))
+        MOTION_LOG(WRN, TYPE_CORE, NO_ERRNO, "libwebp image compression error");
+
+    /* Write the webp bytestream to file */
+    if (fwrite(webp_writer.mem, sizeof(uint8_t), webp_writer.size, fp) != webp_writer.size)
+        MOTION_LOG(ERR, TYPE_CORE, NO_ERRNO, "unable to save webp image to file");
+
+#if WEBP_ENCODER_ABI_VERSION > 0x0202
+    /* writer.mem must be freed by calling WebPMemoryWriterClear */
+    WebPMemoryWriterClear(&webp_writer);
+#else
+    /* writer.mem must be freed by calling 'free(writer.mem)' */
+    free(webp_writer.mem);
+#endif /* WEBP_ENCODER_ABI_VERSION */
+
+    /* free the memory used by webp for image object */
+    WebPPictureFree(&webp_image);
+}
+#endif /* HAVE_WEBP */
+
 /**
  * put_jpeg_yuv420p_file
  *      Converts an YUV420P coded image to a jpeg image and writes
@@ -556,9 +634,9 @@ static int put_jpeg_grey_memory(unsigned char *dest_image, int image_size, unsig
  * Returns nothing
  */
 static void put_jpeg_yuv420p_file(FILE *fp,
-				  unsigned char *image, int width, int height,
-				  int quality,
-				  struct context *cnt, struct tm *tm, struct coord *box)
+                  unsigned char *image, int width, int height,
+                  int quality,
+                  struct context *cnt, struct timeval *tv1, struct coord *box)
 {
     int i, j;
 
@@ -599,7 +677,7 @@ static void put_jpeg_yuv420p_file(FILE *fp,
     jpeg_stdio_dest(&cinfo, fp);        // Data written to file
     jpeg_start_compress(&cinfo, TRUE);
 
-    put_jpeg_exif(&cinfo, cnt, tm, box);
+    put_jpeg_exif(&cinfo, cnt, tv1, box);
 
     for (j = 0; j < height; j += 16) {
         for (i = 0; i < 16; i++) {
@@ -613,8 +691,8 @@ static void put_jpeg_yuv420p_file(FILE *fp,
                 y[i] = 0x00;
                 cb[i] = 0x00;
                 cr[i] = 0x00;
-            }        
-        }    
+            }
+        }
         jpeg_write_raw_data(&cinfo, data, 16);
     }
 
@@ -898,7 +976,7 @@ int put_picture_memory(struct context *cnt, unsigned char* dest_image, int image
     switch (cnt->imgs.type) {
     case VIDEO_PALETTE_YUV420P:
         return put_jpeg_yuv420p_memory(dest_image, image_size, image,
-                                       cnt->imgs.width, cnt->imgs.height, quality, cnt, &(cnt->current_image->timestamp_tm), &(cnt->current_image->location));
+                                       cnt->imgs.width, cnt->imgs.height, quality, cnt, &(cnt->current_image->timestamp_tv), &(cnt->current_image->location));
     case VIDEO_PALETTE_GREY:
         return put_jpeg_grey_memory(dest_image, image_size, image,
                                     cnt->imgs.width, cnt->imgs.height, quality);
@@ -917,7 +995,12 @@ void put_picture_fd(struct context *cnt, FILE *picture, unsigned char *image, in
     } else {
         switch (cnt->imgs.type) {
         case VIDEO_PALETTE_YUV420P:
-            put_jpeg_yuv420p_file(picture, image, cnt->imgs.width, cnt->imgs.height, quality, cnt, &(cnt->current_image->timestamp_tm), &(cnt->current_image->location));
+            #ifdef HAVE_WEBP
+            if (cnt->imgs.picture_type == IMAGE_TYPE_WEBP)
+                put_webp_yuv420p_file(picture, image, cnt->imgs.width, cnt->imgs.height, quality);
+            #endif /* HAVE_WEBP */
+            if (cnt->imgs.picture_type == IMAGE_TYPE_JPEG)
+                put_jpeg_yuv420p_file(picture, image, cnt->imgs.width, cnt->imgs.height, quality, cnt, &(cnt->current_image->timestamp_tv), &(cnt->current_image->location));
             break;
         case VIDEO_PALETTE_GREY:
             put_jpeg_grey_file(picture, image, cnt->imgs.width, cnt->imgs.height, quality);
@@ -1004,8 +1087,11 @@ unsigned char *get_pgm(FILE *picture, int width, int height)
     }
 
     /* Read data */
-
-    image = mymalloc(mask_width * mask_height);
+    /* We allocate the size for a 420P since we will use
+    ** this image for masking privacy which needs the space for
+    ** the cr / cb components
+    */
+    image = mymalloc((mask_width * mask_height * 3) / 2);
 
     for (y = 0; y < mask_height; y++) {
         if ((int)fread(&image[y * mask_width], 1, mask_width, picture) != mask_width)
@@ -1022,12 +1108,12 @@ unsigned char *get_pgm(FILE *picture, int width, int height)
         MOTION_LOG(WRN, TYPE_ALL, NO_ERRNO, "%s: Attempting to resize mask image from %dx%d to %dx%d",
                    mask_width, mask_height, width, height);
 
-        resized_image = mymalloc(width * height);
+        resized_image = mymalloc((width * height * 3) / 2);
 
         for (y = 0; y < height; y++) {
             for (x = 0; x < width; x++) {
                 resized_image[y * width + x] = image[
-                        (mask_height - 1) * y / (height - 1) * mask_width + 
+                        (mask_height - 1) * y / (height - 1) * mask_width +
                         (mask_width  - 1) * x / (width  - 1)];
             }
         }
@@ -1107,12 +1193,7 @@ void preview_save(struct context *cnt)
         /* Use filename of movie i.o. jpeg_filename when set to 'preview'. */
         use_imagepath = strcmp(cnt->conf.imagepath, "preview");
 
-#ifdef HAVE_FFMPEG
-        if ((cnt->ffmpeg_output || (cnt->conf.useextpipe && cnt->extpipe))
-            && !use_imagepath) {
-#else
-        if ((cnt->conf.useextpipe && cnt->extpipe) && !use_imagepath) {
-#endif
+        if ((cnt->ffmpeg_output || (cnt->conf.useextpipe && cnt->extpipe)) && !use_imagepath) {
             if (cnt->conf.useextpipe && cnt->extpipe) {
                 basename_len = strlen(cnt->extpipefilename) + 1;
                 strncpy(previewname, cnt->extpipefilename, basename_len);
@@ -1141,7 +1222,7 @@ void preview_save(struct context *cnt)
             else
                 imagepath = (char *)DEF_IMAGEPATH;
 
-            mystrftime(cnt, filename, sizeof(filename), imagepath, &cnt->imgs.preview_image.timestamp_tm, NULL, 0);
+            mystrftime(cnt, filename, sizeof(filename), imagepath, &cnt->imgs.preview_image.timestamp_tv, NULL, 0);
             snprintf(previewname, PATH_MAX, "%s/%s.%s", cnt->conf.filepath, filename, imageext(cnt));
 
             put_picture(cnt, previewname, cnt->imgs.preview_image.image, FTYPE_IMAGE);

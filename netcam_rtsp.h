@@ -23,9 +23,13 @@ struct rtsp_context {
     char*                 path;
     char*                 user;
     char*                 pass;
+    const char*           netcam_url;
+    int                   interrupted;
+    int                   active;
     enum RTSP_STATUS      status;
     struct timeval        startreadtime;
-    struct SwsContext*   swsctx;
+    struct SwsContext*    swsctx;
+    long                  tstamp;   //added for HD foscam timestamp
 };
 
 #else /* Do not have FFmpeg */
@@ -43,5 +47,13 @@ int netcam_connect_rtsp(netcam_context_ptr netcam);
 int netcam_read_rtsp_image(netcam_context_ptr netcam);
 int netcam_setup_rtsp(netcam_context_ptr netcam, struct url_t *url);
 int netcam_next_rtsp(unsigned char *image , netcam_context_ptr netcam);
+//for foscam
+int netcam_init_decode_H264(netcam_context_ptr netcam);
+int netcam_http_build_url(netcam_context_ptr netcam, struct url_t *url);
+int netcam_connect(netcam_context_ptr netcam, int err_flag);
+int netcam_hd_foscam_start_stream(netcam_context_ptr netcam);
+int netcam_hd_foscam_stop_stream(netcam_context_ptr netcam);
+int netcam_read_hd_foscam(netcam_context_ptr netcam);
+int netcam_connect_foscam(netcam_context_ptr netcam);
 
 #endif /* _INCLUDE_NETCAM_RTSP_H */

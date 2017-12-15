@@ -21,7 +21,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Wget; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. */ 
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. */
 
 #ifndef NETCAM_WGET_H
 #define NETCAM_WGET_H
@@ -72,13 +72,13 @@ int rbuf_read_bufferful(netcam_context_ptr);
 /* How many bytes it will take to store LEN bytes in base64.  */
 #define BASE64_LENGTH(len) (4 * (((len) + 2) / 3))
 
-void base64_encode(const char *, char *, int);
+void motion_base64_encode(const char *, char *, int);
 char *strdupdelim(const char *, const char *);
 int http_process_type(const char *, void *);
 
 enum {
-    HG_OK, 
-    HG_ERROR, 
+    HG_OK,
+    HG_ERROR,
     HG_EOF
 };
 

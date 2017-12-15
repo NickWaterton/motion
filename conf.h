@@ -28,6 +28,7 @@ struct config {
     int height;
     int camera_id;
     int quality;
+    const char *flip_axis;
     int rotate_deg;
     int max_changes;
     int threshold_tune;
@@ -67,9 +68,6 @@ struct config {
     int ffmpeg_bps;
     int ffmpeg_vbr;
     const char *ffmpeg_video_codec;
-#ifdef HAVE_SDL
-    int sdl_threadnr;
-#endif
     int ipv6_enabled;
     int stream_port;
     int stream_quality;
@@ -89,9 +87,7 @@ struct config {
     int tuner_number;
     int timelapse;
     const char *timelapse_mode;
-#if (defined(BSD) || defined(__FreeBSD_kernel__))
     const char *tuner_device;
-#endif
     const char *video_device;
     int v4l2_palette;
     const char *vidpipe;
@@ -103,11 +99,13 @@ struct config {
     char *on_event_start;
     char *on_event_end;
     const char *mask_file;
+    const char *mask_privacy;
     int smart_mask_speed;
     int sql_log_image;
     int sql_log_snapshot;
     int sql_log_movie;
     int sql_log_timelapse;
+    const char *sql_query_start;
     const char *sql_query;
     const char *database_type;
     const char *database_dbname;
@@ -122,6 +120,7 @@ struct config {
     char *on_movie_start;
     char *on_movie_end;
     char *on_camera_lost;
+    char *on_camera_found;
     const char *motionvidpipe;
     const char *netcam_url;
     const char *netcam_userpass;
@@ -129,6 +128,8 @@ struct config {
     const char *netcam_proxy;
     unsigned int netcam_tolerant_check;
     unsigned int rtsp_uses_tcp;
+    int is_hd_foscam;
+    int hd_foscam_stream;
 #ifdef HAVE_MMAL
     const char *mmalcam_name;
     const char *mmalcam_control_params;
@@ -176,9 +177,5 @@ void malloc_strings(struct context *);
 char *mystrdup(const char *);
 char *mystrcpy(char *, const char *);
 struct context **copy_string(struct context **, const char *, int);
-
-#ifndef HAVE_GET_CURRENT_DIR_NAME
-char *get_current_dir_name(void);
-#endif
 
 #endif /* _INCLUDE_CONF_H */

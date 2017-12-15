@@ -4,7 +4,7 @@
 
 <ul>
 <li> <a href="#Motion_Overview"> Overview </a> </li>
-<li> <a href="#Install_Build"> Installing with apt / Building from source </a></li>
+<li> <a href="#Install_Build"> Installing with apt / debs / building from source </a></li>
 <li> <a href="#Important_Definitions"> Important Definitions </a></li>
 <li> <a href="#The_Config_Files"> The Configuration Files </a></li>
 <li> <a href="#Command_Line_Options"> Command Line Options </a></li>
@@ -171,11 +171,12 @@ and <a href="https://github.com/Motion-Project/motion/issues">Issues</a> for kno
 
 </ul>
 
-<h2><a name="Install_Build"></a> Installing with apt / Building from source </h2>
+<h2><a name="Install_Build"></a> Installing with apt / debs / building from source </h2>
 <ul>
 <p></p>
 <ul>
   <li> <a href="#Install_Apt"> Installing with apt</a></li>
+  <li> <a href="#Install_Deb"> Installing with a release deb package</a></li>
   <li> <a href="#Abbreviated_Building"> Abbreviated Building Guide</a></li>
   <li> <a href="#Preparation_For_Building"> Preparation For Building </a></li>
   <li> <a href="#Configure_Script"> Configure Script </a></li>
@@ -196,28 +197,31 @@ Motion is part of the Ubuntu and Debian repositories and can be installed with t
 <p></p>
 Open up a terminal window and type: <code><strong>sudo apt-get install motion</strong></code>
 <p></p>
-Before we start configuring Motion, we will copy the config file to our Home folder so that the master copy
-won't be affected. Open a terminal and copy the configuration file to your Home folder with following commands:
+</ul>
+
+<h3><a name="Install_Deb"></a> Installing with a release deb package </h3>
+<ul>
+Motion can also be installed from the release deb files.
 <p></p>
-<code><strong>mkdir .motion</strong></code>
+Determine the deb file name that is appropriate for the distribution and platform from
+the <a href="https://github.com/Motion-Project/motion/releases">Releases</a> page
+and open up a terminal window and type:
 <p></p>
-(Note: This will create a hidden folder <em>.motion</em> in your Home directory.)
+<ul>
+<code><strong>wget https://github.com/Motion-Project/motion/releases/{deb package name} </strong></code>
+</ul>
 <p></p>
-<code><strong>cp /etc/motion/motion-dist.conf ~/.motion/motion.conf</strong></code>
+Next, install the retrieved deb package.  Below is a sample method to install that
+uses the gdebi tool.
 <p></p>
-(Note: This command will copy the original motion configuration file to its location.)
+<ul>
+<code><strong>sudo apt-get install gdebi-core</strong></code>
 <p></p>
-Now can open the configuration file for editing:
-<p></p>
-<code><strong>sudo nano ~/.motion/motion.conf</strong></code>
-<p></p>
-After you you have made all the appropriate adjustments to the configuration file, close it.
-Then start motion in the terminal simply by typing:
-<p></p>
-<code><strong>motion</strong></code>
-<p></p>
+<code><strong>sudo gdebi {deb package name}</strong></code>
+</ul>
 <p></p>
 </ul>
+
 <h3><a name="Abbreviated_Building"></a> Abbreviated Building Guide  </a> </h3>
 <ul>
 
@@ -228,7 +232,7 @@ script for Ubuntu.  If errors occur during the process or you wish to customize 
 review the extended building instructions further below.
 <p></p>
 <code><strong>sudo apt-get install autoconf automake build-essential pkgconf libtool libzip-dev
-libjpeg62 libjpeg62-dev git libavformat-dev libavcodec-dev libavutil-dev libswscale-dev</strong></code>
+libjpeg62 libjpeg62-dev git libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libavdevice-dev </strong></code>
 <p></p>
 <code><strong>cd ~</strong></code>
 <br><code><strong>git clone https://github.com/Motion-Project/motion.git</strong></code>
@@ -264,7 +268,7 @@ Ubuntu / Debian Packages
   <li>Required</li>
   <ul>
     <p></p>
-    <code><strong>sudo apt-get install autoconf automake build-essential pkgconf libtool git libzip-dev libjpeg62 libjpeg62-dev</strong></code>
+    <code><strong>sudo apt-get install autoconf automake build-essential pkgconf libtool git libzip-dev libjpeg62 libjpeg62-dev </strong></code>
     <p></p>
   </ul>
   <p></p>
@@ -273,7 +277,7 @@ Ubuntu / Debian Packages
     <li>FFMpeg Functionality(Required for creating movies, using network cameras, etc.  See note below!)</li>
     <ul>
       <p></p>
-      <code><strong>sudo apt-get install libavformat-dev libavcodec-dev libavutil-dev libswscale-dev</strong></code>
+      <code><strong>sudo apt-get install libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libavdevice-dev</strong></code>
       <p></p>
     </ul>
     <li>MySQL database functionality</li>
@@ -300,10 +304,10 @@ Ubuntu / Debian Packages
       <code><strong>sudo apt-get install libjpeg-turbo8 libjpeg-turbo8-dev</strong></code>
       <p></p>
     </ul>
-    <li>SDL</li>
+    <li>Webp Image Support</li>
     <ul>
       <p></p>
-      <code><strong>sudo apt-get install libsdl1.2-dev</strong></code>
+      <code><strong>sudo apt-get install libwebp-dev</strong></code>
       <p></p>
     </ul>
 
@@ -362,6 +366,12 @@ openSUSE Packages
       <code><strong>Not known by author</strong></code>
       <p></p>
     </ul>
+    <li>Webp Image Support</li>
+    <ul>
+      <p></p>
+      <code><strong>sudo zypper install libwebp-devel </strong></code>
+      <p></p>
+    </ul>
   </ul>
   Important ffmpeg note:  The ffmpeg libraries indicated above are provided by a external repository.  This may
   change in the future.  Validate that the repository is still valid when doing the install on openSUSE systems.
@@ -377,11 +387,8 @@ FreeBSD
     <ul>
       <li>autoconf</li>
       <li>automake</li>
-      <li>gcc</li>
       <li>gmake</li>
-      <li>libjpeg-turbo</li>
       <li>pkgconf</li>
-      <li>ffmpeg</li>
     </ul>
   <li>Optional database packages</li>
     <ul>
@@ -389,10 +396,14 @@ FreeBSD
       <li>postgresql95-contrib</li>
       <li>sqlite3</li>
     </ul>
-   <li>PWC based webcams packages</li>
+   <li>Webcams packages</li>
     <ul>
-      <li>pwcbsd</li>
+      <li>webcamd</li>
       <li>v4l_compat</li>
+    </ul>
+   <li>Webp Image Support</li>
+    <ul>
+      <li>libwebp</li>
     </ul>
 </ul>
 
@@ -595,28 +606,18 @@ how Motion is built.
 			<th bgcolor="#edf4f9" word-wrap:break-word >  </th>
 		</tr>
 		<tr>
-			<td bgcolor="#edf4f9" word-wrap:break-word > --with-linuxthreads </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > Use linuxthreads in BSD instead of native phtreads </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > Only relevant for BSD. In Linux we always use this per default. </td>
-		</tr>
-		<tr>
-			<td bgcolor="#edf4f9" word-wrap:break-word > --with-pwcbsd </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > Use pwcbsd based webcams ( only BSD ) </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > This option allow to build motion to support V4L/V4L2 in BSD. </td>
-		</tr>
-		<tr>
 			<td bgcolor="#edf4f9" word-wrap:break-word > --without-bktr </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > Exclude to use bktr subsystem , that usually useful for devices as network cameras </td>
+			<td bgcolor="#edf4f9" word-wrap:break-word > Exclude bktr video subsystem devices </td>
 			<td bgcolor="#edf4f9" word-wrap:break-word > ONLY used in *BSD </td>
 		</tr>
 		<tr>
-			<td bgcolor="#edf4f9" word-wrap:break-word > --without-v4l </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > Exclude using v4l (video4linux) subsystem. Makes Motion so it only supports network cameras. </td>
+			<td bgcolor="#edf4f9" word-wrap:break-word > --without-v4l2 </td>
+			<td bgcolor="#edf4f9" word-wrap:break-word > Exclude using v4l2 (video4linux2) subsystem. Makes Motion so it only supports network cameras. </td>
 			<td bgcolor="#edf4f9" word-wrap:break-word > Can be used if you do not need support and maybe lack some of the libraries for it. </td>
 		</tr>
 		<tr>
-			<td bgcolor="#edf4f9" word-wrap:break-word > --with-jpeg-mmx=DIR </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > Specify the prefix for the install path for jpeg-mmx for optimized jpeg handling</td>
+			<td bgcolor="#edf4f9" word-wrap:break-word > --with-webp </td>
+			<td bgcolor="#edf4f9" word-wrap:break-word > Compile with webp image support</td>
 			<td bgcolor="#edf4f9" word-wrap:break-word >  </td>
 		</tr>
 		<tr>
@@ -644,29 +645,9 @@ how Motion is built.
 			<td bgcolor="#edf4f9" word-wrap:break-word > Use this if you do not want to compile with ffmpeg. If ffmpeg is not installed you must specify this option for Motion to build without ffmpeg. </td>
 		</tr>
 		<tr>
-			<td bgcolor="#edf4f9" word-wrap:break-word > --with-mysql-lib=DIR </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > Lib directory of MySQL </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > Normally, configure will scan all possible default installation paths for MySQL libs. When its fail, use this command to tell configure where MySQL libs installation root directory is. </td>
-		</tr>
-		<tr>
-			<td bgcolor="#edf4f9" word-wrap:break-word > --with-mysql-include=DIR </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > Include directory with headers for MySQL </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > Normally, configure will scan all possible default                          installation paths for MySQL include. When its fail, use this command to tell configure where MySQL include installation directory is. This is the directory with the MySQL header files. </td>
-		</tr>
-		<tr>
 			<td bgcolor="#edf4f9" word-wrap:break-word > --without-mysql </td>
 			<td bgcolor="#edf4f9" word-wrap:break-word > Do not compile with MySQL support </td>
 			<td bgcolor="#edf4f9" word-wrap:break-word > Use this if you do not want to include MySQL support in the package. <br /> This can also be useful if you get compilation errors related to MySQL and you actually do not need the feature anyway. </td>
-		</tr>
-		<tr>
-			<td bgcolor="#edf4f9" word-wrap:break-word > --with-pgsql-lib=DIR </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > Normally, configure will scan all possible default installation paths for pgsql libs. When it fails, use <br /> this command to tell configure where pgsql libs installation root directory is. </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word >  </td>
-		</tr>
-      <tr>
-			<td bgcolor="#edf4f9" word-wrap:break-word > --with-pgsql-include=DIR </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > Normally, configure will scan all possible default installation paths for pgsql include. When it fails, use this command to tell configure where pgsql include installation root directory is. </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word >  </td>
 		</tr>
 		<tr>
 			<td bgcolor="#edf4f9" word-wrap:break-word > --without-pgsql </td>
@@ -682,16 +663,6 @@ how Motion is built.
 			<td bgcolor="#edf4f9" word-wrap:break-word > --without-optimizecpu </td>
 			<td bgcolor="#edf4f9" word-wrap:break-word > Exclude autodetecting platform and cpu type. This will disable the compilation of gcc optimizing code by platform and cpu. </td>
 			<td bgcolor="#edf4f9" word-wrap:break-word > Use this if the optimization causes problems. Typically if you build on some non X386 compatible CPU. </td>
-		</tr>
-		<tr>
-			<td bgcolor="#edf4f9" word-wrap:break-word > --with-sdl=DIR </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word >  Compile with sdl support.</td>
-			<td bgcolor="#edf4f9" word-wrap:break-word > </td>
-		</tr>
-		<tr>
-			<td bgcolor="#edf4f9" word-wrap:break-word > --with-jpeg-turbo=DIR </td>
-			<td bgcolor="#edf4f9" word-wrap:break-word >  Specify the prefix for the install path for jpeg-turbo for optimized jpeg handling (optional).</td>
-			<td bgcolor="#edf4f9" word-wrap:break-word >  </td>
 		</tr>
 		<tr>
 			<td bgcolor="#edf4f9" word-wrap:break-word > --with-developer-flags </td>
@@ -819,7 +790,7 @@ A few important definitions.
   for testing and tuning and making mask files as you can see exactly where motion sees something moving.
   Motion is shown in greytones. If labelling is enabled the largest area is marked as blue. Smart mask is
   shown in red.</li>
-  <li> A "normal" image is the real image taken by the camera with text overlayed.</li>
+  <li> A "normal" image is the real image taken by the camera with text overlaid.</li>
 </ul>
 
 <p></p>
@@ -827,8 +798,6 @@ A few important definitions.
 </ul>
 
 <h2><a name="The_Config_Files"></a>  The Configuration Files </h2>
-<ul>
-
 <p></p>
 If Motion was invoked with command line option <code>-c pathname</code> Motion will expect the config file to be as specified. When you specify the config file on the command line with -c you can call it anything.
 <p></p>
@@ -1022,10 +991,9 @@ For video4linux devices, the camera must be installed per the requirements of th
 out of the scope of this document to tell you how to do this and it depends on which type of camera.  Once
 the camera is installed it will have the device name(s) of /dev/video0, /dev/video1, /dev/video2...
 <p></p>
-FreeBSD has a different naming of devices. When you build Motion for FreeBSD the default device name is /dev/bktr0.
-Under FreeBSD a TV card has a special device for controlling the tuner (e.g. /dev/tuner0). The option tunerdevice
-is only valid when Motion is built and running under FreeBSD. For Linux do not include this option in the config
-file (remove or comment out).
+FreeBSD has a different naming scheme for pci devices that use the bktr subsystem.  The bktr subsystem will report
+devices using a naming scheme of /dev/bktr0, /dev/bktr1, etc.  These device may also need to use the other
+special device for the tuner.  The tuner will need to be specified with the tunerdevice option as /dev/tuner0.
 <p></p>
 <strong>USB cameras</strong> take a lot of bandwidth. A USB camera connected to a USB2 port or hub consumes virtually
 all the bandwidth that the port can handle. Even with a small framesize and low framerate you should not expect to have
@@ -1041,17 +1009,20 @@ Motion permits the use of video cards that have discreet input channels.  Since 
 the option <code>input</code> must be set to the value -1 for USB cameras.
 <p></p>
 
-<strong>Network cameras</strong> are set up via the <code><strong>netcam_url</strong></code> parameter.
+<strong>Network cameras</strong> are set up via the
+<code><strong> <a href="#netcam_url" >netcam_url</a> </code></strong> parameter.
 The latest versions of Motion support rtsp format which many cameras now stream.
 The URL connection string to enter is specific to the camera and is
 usually provided by the manufacturer.  The connection string is the same as what would be used by other
 video playing software such as VLC.  If the camera does not stream via RTSP and instead uses a MJPEG, then Motion
-can also view that format.  See the option <code><strong>netcam_url</strong></code> for additional options.
+can also view that format.  See the option <code><strong> <a href="#netcam_url" >netcam_url</a> </code></strong>
+for additional options.
 <p></p>
 
-<strong>Raspberry Pi cameras</strong> are set up via the <code><strong>mmalcam_name</strong></code> parameter.
+<strong>Raspberry Pi cameras</strong> are set up via the <code><strong>
+<a href="#mmalcam_name" >mmalcam_name</a> </code></strong> parameter.
 Note that name for this parameter derives from the MMAL/OpenMax software.  The most common use of this
-option is to use the Rasberry PI camera.
+option is to use the Raspberry PI camera.
 <p></p>
 
 <strong>Composite video cards</strong> are normally made with a chip called BT878 (older cards have a BT848). They
@@ -1081,6 +1052,16 @@ option <code>frequency</code>. Otherwise set <code>frequency</code> to 0.
 Finally you need to set the TV norm. Values: 0 (PAL), 1 (NTSC), 2 (SECAM), 3 (PAL NC no colour). Default is 0 (PAL).
 If your camera is a PAL black and white you may get a better result with norm=3 (PAL no colour).
 <p></p>
+
+<strong>Static files</strong> can also be processed with a bit of additional setup via a v4l2loopback.
+Install the loopback software to create a /dev/videoX device and then use software such as ffmpeg to stream
+the static file into the v4l2 device.  e.g. <code><strong> ffmpeg -re -i <mymovie.mp4> -f v4l2 -pix_fmt gray /dev/video0 </strong></code>
+As illustrated in the example, this method can also be used to reformat the content to a different pixel.  This
+can be helpful as a interim process where ffmpeg supports a particular format but that format is not yet supported
+by Motion.
+<p></p>
+
+
 <p></p>
 </ul>
 
@@ -1270,6 +1251,11 @@ Some configuration options are only used if Motion is built on a system that has
 		<td align="left"><a href="#ffmpeg_video_codec" >ffmpeg_video_codec</a></td>
 	</tr>
 	<tr>
+		<td height="17" align="left">flip_axis</td>
+		<td align="left">flip_axis</td>
+		<td align="left"><a href="#flip_axis" >flip_axis</a></td>
+	</tr>
+	<tr>
 		<td height="17" align="left">framerate</td>
 		<td align="left">framerate</td>
 		<td align="left"><a href="#framerate" >framerate</a></td>
@@ -1335,6 +1321,12 @@ Some configuration options are only used if Motion is built on a system that has
 		<td align="left"><a href="#mask_file" >mask_file</a></td>
 	</tr>
 	<tr>
+		<td height="17" align="left"></td>
+		<td align="left"></td>
+		<td align="left"><a href="#mask_privacy" >mask_privacy</a></td>
+	</tr>
+
+	<tr>
 		<td height="17" align="left">max_mpeg_time</td>
 		<td align="left">max_movie_time</td>
 		<td align="left"><a href="#max_movie_time" >max_movie_time</a></td>
@@ -1370,7 +1362,7 @@ Some configuration options are only used if Motion is built on a system that has
 		<td align="left"><a href="#movie_filename" >movie_filename</a></td>
 	</tr>
 	<tr>
-		<td height="17" align="left">netcam_http</td>
+		<td height="17" align="left">netcam_keepalive</td>
 		<td align="left">netcam_keepalive</td>
 		<td align="left"><a href="#netcam_keepalive" >netcam_keepalive</a></td>
 	</tr>
@@ -1418,6 +1410,11 @@ Some configuration options are only used if Motion is built on a system that has
 		<td height="17" align="left">on_camera_lost</td>
 		<td align="left">on_camera_lost</td>
 		<td align="left"><a href="#on_camera_lost" >on_camera_lost</a></td>
+	</tr>
+	<tr>
+		<td height="17" align="left">on_camera_found</td>
+		<td align="left">on_camera_found</td>
+		<td align="left"><a href="#on_camera_found" >on_camera_found</a></td>
 	</tr>
 	<tr>
 		<td height="17" align="left">on_event_end</td>
@@ -1502,7 +1499,7 @@ Some configuration options are only used if Motion is built on a system that has
 	<tr>
 		<td height="17" align="left">rotate</td>
 		<td align="left">rotate</td>
-		<td align="left"><a href="#auto_brightness" >rotate</a></td>
+		<td align="left"><a href="#rotate" >rotate</a></td>
 	</tr>
 	<tr>
 		<td height="17" align="left">roundrobin_frames</td>
@@ -1523,11 +1520,6 @@ Some configuration options are only used if Motion is built on a system that has
 		<td height="17" align="left">saturation</td>
 		<td align="left">saturation</td>
 		<td align="left"><a href="#saturation" >saturation</a></td>
-	</tr>
-	<tr>
-		<td height="17" align="left"><br></td>
-		<td align="left">sdl_threadnr</td>
-		<td align="left"><a href="#sdl_threadnr" >sdl_threadnr</a></td>
 	</tr>
 	<tr>
 		<td height="17" align="left">setup_mode</td>
@@ -1570,14 +1562,19 @@ Some configuration options are only used if Motion is built on a system that has
 		<td align="left"><a href="#sql_log_timelapse" >sql_log_timelapse</a></td>
 	</tr>
 	<tr>
-		<td height="17" align="left">sql_query</td>
-		<td align="left">sql_query</td>
-		<td align="left"><a href="#sql_query" >sql_query</a></td>
+        <td height="17" align="left">sql_query</td>
+        <td align="left">sql_query</td>
+        <td align="left"><a href="#sql_query" >sql_query</a></td>
 	</tr>
-	<tr>
-		<td height="17" align="left"><br></td>
-		<td align="left">stream_auth_method</td>
-		<td align="left"><a href="#stream_auth_method" >stream_auth_method</a></td>
+    <tr>
+        <td height="17" align="left">sql_query_start</td>
+        <td align="left">sql_query_start</td>
+        <td align="left"><a href="#sql_query_start" >sql_query_start</a></td>
+    </tr>
+    <tr>
+        <td height="17" align="left"><br></td>
+        <td align="left">stream_auth_method</td>
+        <td align="left"><a href="#stream_auth_method" >stream_auth_method</a></td>
 	</tr>
 	<tr>
 		<td height="17" align="left"><br></td>
@@ -1829,11 +1826,10 @@ Some configuration options are only used if Motion is built on a system that has
      <tr>
        <td bgcolor="#edf4f9" ><a href="#log_level" >log_level</a> </td>
        <td bgcolor="#edf4f9" ><a href="#log_type" >log_type</a> </td>
-       <td bgcolor="#edf4f9" ><a href="#sdl_threadnr" >sdl_threadnr</a> </td>
        <td bgcolor="#edf4f9" ><a href="#camera" >camera</a> </td>
+       <td bgcolor="#edf4f9" ><a href="#camera_id" >camera_id</a> </td>
      </tr>
      <tr>
-       <td bgcolor="#edf4f9" ><a href="#camera_id" >camera_id</a> </td>
        <td bgcolor="#edf4f9" ><a href="#camera_name" >camera_name</a> </td>
        <td bgcolor="#edf4f9" ><a href="#camera_dir" >camera_dir</a> </td>
      </tr>
@@ -1951,13 +1947,14 @@ Some configuration options are only used if Motion is built on a system that has
  	<tbody>
   	  <tr>
        <td bgcolor="#edf4f9" ><a href="#rotate" >rotate</a> </td>
+       <td bgcolor="#edf4f9" ><a href="#flip_axis" >flip_axis</a> </td>
        <td bgcolor="#edf4f9" ><a href="#width" >width</a> </td>
        <td bgcolor="#edf4f9" ><a href="#height" >height</a> </td>
        <td bgcolor="#edf4f9" ><a href="#framerate" >framerate</a> </td>
      </tr>
   	  <tr>
   	    <td bgcolor="#edf4f9" ><a href="#minimum_frame_time" >minimum_frame_time</a> </td>
-       <td bgcolor="#edf4f9" ><a href="#despeckle" >despeckle</a> </td>
+       <td bgcolor="#edf4f9" ><a href="#despeckle_filter" >despeckle_filter</a> </td>
        <td bgcolor="#edf4f9" ><a href="#locate_motion_mode" >locate_motion_mode</a> </td>
        <td bgcolor="#edf4f9" ><a href="#locate_motion_style" >locate_motion_style</a> </td>
      </tr>
@@ -1999,9 +1996,10 @@ Some configuration options are only used if Motion is built on a system that has
    	 <td bgcolor="#edf4f9" ><a href="#noise_tune" >noise_tune</a> </td>
        <td bgcolor="#edf4f9" ><a href="#area_detect" >area_detect</a> </td>
        <td bgcolor="#edf4f9" ><a href="#mask_file" >mask_file</a> </td>
-       <td bgcolor="#edf4f9" ><a href="#smart_mask_speed" >smart_mask_speed</a> </td>
+       <td bgcolor="#edf4f9" ><a href="#mask_privacy" >mask_privacy</a> </td>
      </tr>
   	  <tr>
+       <td bgcolor="#edf4f9" ><a href="#smart_mask_speed" >smart_mask_speed</a> </td>
   	    <td bgcolor="#edf4f9" ><a href="#lightswitch" >lightswitch</a> </td>
        <td bgcolor="#edf4f9" ><a href="#minimum_motion_frames" >minimum_motion_frames</a> </td>
        <td bgcolor="#edf4f9" ><a href="#event_gap" >event_gap</a> </td>
@@ -2032,11 +2030,15 @@ Some configuration options are only used if Motion is built on a system that has
        <td bgcolor="#edf4f9" ><a href="#on_motion_detected" >on_motion_detected</a> </td>
      </tr>
      <tr>
-   	 <td bgcolor="#edf4f9" ><a href="#on_area_detected" >on_area_detected</a> </td>
+   	   <td bgcolor="#edf4f9" ><a href="#on_area_detected" >on_area_detected</a> </td>
        <td bgcolor="#edf4f9" ><a href="#on_movie_start" >on_movie_start</a> </td>
        <td bgcolor="#edf4f9" ><a href="#on_movie_end" >on_movie_end</a> </td>
        <td bgcolor="#edf4f9" ><a href="#on_camera_lost" >on_camera_lost</a> </td>
      </tr>
+     <tr>
+       <td bgcolor="#edf4f9" ><a href="#on_camera_found" >on_camera_found</a> </td>
+     </tr>
+
    </tbody>
 </table>
 
@@ -2219,18 +2221,21 @@ Some configuration options are only used if Motion is built on a system that has
        <td bgcolor="#edf4f9" ><a href="#sql_log_movie" >sql_log_movie</a> </td>
        <td bgcolor="#edf4f9" ><a href="#sql_log_timelapse" >sql_log_timelapse</a> </td>
      </tr>
-  	  <tr>
-  	    <td bgcolor="#edf4f9" ><a href="#sql_query" >sql_query</a> </td>
-       <td bgcolor="#edf4f9" ><a href="#database_type" >database_type</a> </td>
-       <td bgcolor="#edf4f9" ><a href="#database_dbname" >database_dbname</a> </td>
-       <td bgcolor="#edf4f9" ><a href="#database_host" >database_host</a> </td>
-     </tr>
-  	  <tr>
-  	    <td bgcolor="#edf4f9" ><a href="#database_user" >database_user</a> </td>
-       <td bgcolor="#edf4f9" ><a href="#database_password" >database_password</a> </td>
-       <td bgcolor="#edf4f9" ><a href="#database_port" >database_port</a> </td>
-       <td bgcolor="#edf4f9" ><a href="#database_busy_timeout" >database_busy_timeout</a> </td>
-     </tr>
+    <tr>
+        <td bgcolor="#edf4f9" ><a href="#sql_query" >sql_query</a> </td>
+        <td bgcolor="#edf4f9" ><a href="#sql_query_start" >sql_query_start</a> </td>
+        <td bgcolor="#edf4f9" ><a href="#database_type" >database_type</a> </td>
+        <td bgcolor="#edf4f9" ><a href="#database_dbname" >database_dbname</a> </td>
+    </tr>
+    <tr>
+        <td bgcolor="#edf4f9" ><a href="#database_host" >database_host</a> </td>
+        <td bgcolor="#edf4f9" ><a href="#database_user" >database_user</a> </td>
+        <td bgcolor="#edf4f9" ><a href="#database_password" >database_password</a> </td>
+        <td bgcolor="#edf4f9" ><a href="#database_port" >database_port</a> </td>
+    </tr>
+    <tr>
+        <td bgcolor="#edf4f9" ><a href="#database_busy_timeout" >database_busy_timeout</a> </td>
+    </tr>
    </tbody>
 </table>
 
@@ -2316,7 +2321,7 @@ The following section provides detailed descriptions of each of the configuratio
        <td bgcolor="#edf4f9" >%m  </a> </td>
        <td bgcolor="#edf4f9" >month</a> </td>
        <td bgcolor="#edf4f9" >%d   </a> </td>
-       <td bgcolor="#edf4f9" >date</a> </td>
+       <td bgcolor="#edf4f9" >day</a> </td>
      </tr>
      <tr>
        <td bgcolor="#edf4f9" >%H   </a> </td>
@@ -2348,9 +2353,9 @@ The following section provides detailed descriptions of each of the configuratio
        <td bgcolor="#edf4f9" >%i </a> </td>
        <td bgcolor="#edf4f9" >width of motion area,</a> </td>
        <td bgcolor="#edf4f9" >%J  </a> </td>
-       <td bgcolor="#edf4f9" >height of motion area,</a> </td>
+       <td bgcolor="#edf4f9" >height of motion area</a> </td>
        <td bgcolor="#edf4f9" >%J  </a> </td>
-       <td bgcolor="#edf4f9" >height of motion area,</a> </td>
+       <td bgcolor="#edf4f9" >height of motion area</a> </td>
 
      </tr>
      <tr>
@@ -2369,6 +2374,15 @@ The following section provides detailed descriptions of each of the configuratio
        <td bgcolor="#edf4f9" >number indicating filetype</a> </td>
        <td bgcolor="#edf4f9" >%$</a> </td>
        <td bgcolor="#edf4f9" >camera name</a> </td>
+
+     </tr>
+     <tr>
+       <td bgcolor="#edf4f9" >%{host}</a> </td>
+       <td bgcolor="#edf4f9" >name of computer running Motion</a> </td>
+       <td bgcolor="#edf4f9" >%{fps}</a> </td>
+       <td bgcolor="#edf4f9" >current frames per second</a> </td>
+       <td bgcolor="#edf4f9" >%{dbeventid}</a> </td>
+       <td bgcolor="#edf4f9" >See <a href="#sql_query_start">sql_query_start</a> </a> </td>
      </tr>
     </tbody>
 </table>
@@ -2495,27 +2509,6 @@ are: COR, STR, ENC, NET, DBL, EVT, TRK, VID, ALL
 
 <p></p>
 
-<h3><a name="sdl_threadnr"></a> sdl_threadnr </h3>
-<p></p>
-<ul>
-  <li> Type: String</li>
-  <li> Range / Valid values: Max 4095 characters</li>
-  <li> Default: </li>
-</ul>
-<p></p>
-The SDL option is optional and unusual.  When SDL is included in the
-building of Motion, there is the ability for Motion to create a SDL preview
-window for the user.  The author believes this option to be more of a proof
-of concept on how to create a SDL window and show the image. (This same functionality
-can be achieved via the stream options) To activate the SDL window, include SDL support in
-the building of the Motion application.  Start Motion and note the
-thread number indicated.  Once that is noted, specify that thread number (or 1 more than that number)
-for this option.  When Motion is started again, it will then create a SDL window to preview
-the image.  To close the window, press X.  Author is not aware of any method to restart the
-SDL window after it has been closed.
-
-<p></p>
-
 <h3><a name="camera"></a> camera </h3>
 <p></p>
 <ul>
@@ -2581,50 +2574,180 @@ This option specifies a alternative directory to contain the individual camera c
 <ul>
   <li> Type: String</li>
   <li> Range / Valid values: Max 4095 characters</li>
-  <li> Default: /dev/video0 (FreeBSD: /dev/bktr0)</li>
+  <li> Default: /dev/video0 </li>
 </ul>
 <p></p>
-The video device to be used for capturing. Default for Linux is /dev/video0. for FreeBSD the default is /dev/bktr0.
+The video device to be used for capturing. Default is /dev/video0.
 See the <a href="#Basic_Setup">Basic Setup</a>
 section of this guide for a additional discussion of this option.
 <p></p>
-This is the video4linux device name. Ignore this for net cameras.
+This option is the preferred way to specify the video4linux device name. If the camera does
+not work when specifying the device with this option, it is also possible to specify the device
+in the <a href="#netcam_url" >netcam_url</a>  with the v4l2 prefix option.  The
+<a href="#netcam_url" >netcam_url</a> option uses an alternative method to open and operate the
+device but has fewer options available. If the <a href="#netcam_url" >netcam_url</a> is used for
+either this alternative method or for a normal network camera, the videodevice option is ignored.
 <p></p>
 
 <h3><a name="v4l2_palette"></a> v4l2_palette </h3>
 <p></p>
 <ul>
   <li> Type: String</li>
-  <li> Range / Valid values: Max 4095 characters</li>
+  <li> Range / Valid values: 0 - 21</li>
   <li> Default: </li>
 </ul>
 <p></p>
-The v4l2_palette allows the user to choose preferable palette to be use by Motion.  Note that this
-is only the preferred option.  If the video device does not support the requested format, Motion will
-loop through the available palettes to try to find one that is supported by both Motion and the device.
+The v4l2_palette allows the user to choose preferable palette to be use by Motion.  This
+is only the <u>preferred</u> option.  If the video device does not support this preferred format,
+Motion will loop through the available palettes to try to find one that is supported by both Motion
+and the device.
 Motion will report the supported palettes of the device when Motion starts when the log_level
-is specified as NTC or higher.  The default of 17 is highly preferred since this the native
+is specified as NTC or higher.
+<p></p>
+The default of 17 is highly preferred over <u>all</u> other formats since this the native
 format that Motion uses internally.
-<ul>
-<li> V4L2_PIX_FMT_SN9C10X : 0  'S910'</li>
-<li> V4L2_PIX_FMT_SBGGR16 : 1  'BYR2'</li>
-<li> V4L2_PIX_FMT_SBGGR8  : 2  'BA81'</li>
-<li> V4L2_PIX_FMT_SPCA561 : 3  'S561'</li>
-<li> V4L2_PIX_FMT_SGBRG8  : 4  'GBRG'</li>
-<li> V4L2_PIX_FMT_SGRBG8  : 5  'GRBG'</li>
-<li> V4L2_PIX_FMT_PAC207  : 6  'P207'</li>
-<li> V4L2_PIX_FMT_PJPG    : 7  'PJPG'</li>
-<li> V4L2_PIX_FMT_MJPEG   : 8  'MJPEG'</li>
-<li> V4L2_PIX_FMT_JPEG    : 9  'JPEG'</li>
-<li> V4L2_PIX_FMT_RGB24   : 10 'RGB3'</li>
-<li> V4L2_PIX_FMT_SPCA501 : 11 'S501'</li>
-<li> V4L2_PIX_FMT_SPCA505 : 12 'S505'</li>
-<li> V4L2_PIX_FMT_SPCA508 : 13 'S508'</li>
-<li> V4L2_PIX_FMT_UYVY    : 14 'UYVY'</li>
-<li> V4L2_PIX_FMT_YUYV    : 15 'YUYV'</li>
-<li> V4L2_PIX_FMT_YUV422P : 16 '422P'</li>
-<li> V4L2_PIX_FMT_YUV420  : 17 'YU12'</li>
+<p></p>
+The following are each of the palette options.  For the Motion configuration,
+specify the numeric value as the Motion option.
+<p></p>
+<table border="1" class="fixed" >
+    <colgroup>
+        <col width="250px">
+        <col width="200px">
+        <col width="200px">
+    </colgroup>
+    <tbody>
+        <tr>
+            <td bgcolor="#edf4f9" align="center" > V4l2 Option</td>
+            <td bgcolor="#edf4f9" align="center" > FOURCC</td>
+            <td bgcolor="#edf4f9" align="center" > v4l2_palette option </td>
+        </tr>
+        <tr>
+            <td bgcolor="#edf4f9" align="left" >V4L2_PIX_FMT_SN9C10X</td>
+            <td bgcolor="#edf4f9" align="center" >S910</td>
+            <td bgcolor="#edf4f9" align="center" >0</td>
+        </tr>
+	    <tr>
+            <td bgcolor="#edf4f9" align="left" >V4L2_PIX_FMT_SBGGR16</td>
+            <td bgcolor="#edf4f9" align="center" >BYR2</td>
+            <td bgcolor="#edf4f9" align="center" >1</td>
+        </tr>
+        <tr>
+            <td bgcolor="#edf4f9" align="left" >V4L2_PIX_FMT_SBGGR8</td>
+            <td bgcolor="#edf4f9" align="center" >BA81</td>
+            <td bgcolor="#edf4f9" align="center" >2</td>
+        </tr>
+	    <tr>
+            <td bgcolor="#edf4f9" align="left" >V4L2_PIX_FMT_SPCA561</td>
+            <td bgcolor="#edf4f9" align="center" >S561</td>
+            <td bgcolor="#edf4f9" align="center" >3</td>
+        </tr>
+	    <tr>
+            <td bgcolor="#edf4f9" align="left" >V4L2_PIX_FMT_SGBRG8</td>
+            <td bgcolor="#edf4f9" align="center" >GBRG</td>
+            <td bgcolor="#edf4f9" align="center" >4</td>
+        </tr>
+	    <tr>
+            <td bgcolor="#edf4f9" align="left" >V4L2_PIX_FMT_SGRBG8</td>
+            <td bgcolor="#edf4f9" align="center" >GRBG</td>
+            <td bgcolor="#edf4f9" align="center" >5</td>
+        </tr>
+	    <tr>
+            <td bgcolor="#edf4f9" align="left" >V4L2_PIX_FMT_PAC207</td>
+            <td bgcolor="#edf4f9" align="center" >P207</td>
+            <td bgcolor="#edf4f9" align="center" >6</td>
+        </tr>
+	    <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_PJPG</td>
+            <td bgcolor="#edf4f9" align="center" >PJPG</li>
+            <td bgcolor="#edf4f9" align="center" >7</td>
+	    </tr>
+	    <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_MJPEG</td>
+            <td bgcolor="#edf4f9" align="center" >MJPG</li>
+            <td bgcolor="#edf4f9" align="center" >8</td>
+        </tr>
+	    <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_JPEG</td>
+            <td bgcolor="#edf4f9" align="center" >JPEG</li>
+            <td bgcolor="#edf4f9" align="center" >9</td>
+        </tr>
+	    <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_RGB24</td>
+            <td bgcolor="#edf4f9" align="center" >RGB3</li>
+            <td bgcolor="#edf4f9" align="center" >10</td>
+        </tr>
+	    <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_SPCA501</td>
+            <td bgcolor="#edf4f9" align="center" >S501</li>
+            <td bgcolor="#edf4f9" align="center" >11</td>
+        </tr>
+        <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_SPCA505</td>
+            <td bgcolor="#edf4f9" align="center" >S505</li>
+            <td bgcolor="#edf4f9" align="center" >12</td>
+        </tr>
+        <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_SPCA508</td>
+            <td bgcolor="#edf4f9" align="center" >S508</li>
+            <td bgcolor="#edf4f9" align="center" >13</td>
+        </tr>
+        <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_UYVY</td>
+            <td bgcolor="#edf4f9" align="center" >UYVY</li>
+            <td bgcolor="#edf4f9" align="center" >14</td>
+        </tr>
+        <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_YUYV</td>
+            <td bgcolor="#edf4f9" align="center" >YUYV</li>
+            <td bgcolor="#edf4f9" align="center" >15</td>
+        </tr>
+        <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_YUV422P</td>
+            <td bgcolor="#edf4f9" align="center" >422P</li>
+            <td bgcolor="#edf4f9" align="center" >16</td>
+        </tr>
+        <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_YUV420</td>
+            <td bgcolor="#edf4f9" align="center" >YU12</li>
+            <td bgcolor="#edf4f9" align="center" >17</td>
+        </tr>
+        <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_Y10</td>
+            <td bgcolor="#edf4f9" align="center" >YU10</li>
+            <td bgcolor="#edf4f9" align="center" >18</td>
+        </tr>
+        <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_Y12</td>
+            <td bgcolor="#edf4f9" align="center" >YU12</li>
+            <td bgcolor="#edf4f9" align="center" >19</td>
+        </tr>
+        <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_GREY</td>
+            <td bgcolor="#edf4f9" align="center" >GREY</li>
+            <td bgcolor="#edf4f9" align="center" >20</td>
+        </tr>
+        <tr>
+            <td bgcolor="#edf4f9" align="left" > V4L2_PIX_FMT_H264</td>
+            <td bgcolor="#edf4f9" align="center" >H264</li>
+            <td bgcolor="#edf4f9" align="center" >21</td>
+        </tr>
+    </tbody>
+</table>
+<p></p>
+It is possible that after looping through all of the palette options for the camera, Motion will not
+find a palette that is acceptable for processing.  In this situation, it is possible to use the
+<a href="#netcam_url" >netcam_url</a> option with the v4l2 prefix.  When using the
+<a href="#netcam_url" >netcam_url</a> option, the v4l2_palette option can be used to specify the
+V4L2_PIX_FMT_MJPEG and V4L2_PIX_FMT_H264 options ONLY.  If any of the other palette options
+are specified when using the <a href="#netcam_url" >netcam_url</a> the v4l2_palette option
+is ignored and the camera default is used.
 
+<p></p>
+
+The V4L2_PIX_FMT_H264(21) option is valid ONLY when using the <a href="#netcam_url" >netcam_url</a> option.
+When V4L2_PIX_FMT_H264(21) is specified using the videodevice, Motion will change the v4l2_palette option to the
+default of V4L2_PIX_FMT_YUV420 (17)
 </ul>
 
 <p></p>
@@ -2638,7 +2761,7 @@ format that Motion uses internally.
 </ul>
 <p></p>
 The tuner device used for controlling the tuner in a tuner card. This option is only used when Motion is compiled
-for FreeBSD.  Make sure to remove or comment out this option when running Motion under Linux.
+for FreeBSD with the bktr option.
 See the <a href="#Basic_Setup">Basic Setup</a> section of this guide for a additional discussion of this option.
 <p></p>
 
@@ -2647,7 +2770,7 @@ See the <a href="#Basic_Setup">Basic Setup</a> section of this guide for a addit
 <ul>
   <li> Type: Integer</li>
   <li> Range / Valid values: -1, 0 - 7</li>
-  <li> Default: 1 (Disabled) /li>
+  <li> Default: 1 (Disabled) </li>
 </ul>
 <p></p>
 Input channel to use expressed as an integer number starting from 0.
@@ -2791,8 +2914,8 @@ to share the device with the other cameras.
 <p></p>
 Round Robin is not relevant for Network cameras or standard USB web cameras.  It is used with video capture
 cards which have multiple inputs per video chip.  This is not the ideal way to run multiple cameras.
-When the capture card changes input it takes some time before the decoder chip has syncronized to the new camera.
-You can improve this if you have expensive cameras with a syncronize input. Only one camera can be decoded
+When the capture card changes input it takes some time before the decoder chip has synchronized to the new camera.
+You can improve this if you have expensive cameras with a synchronized input. Only one camera can be decoded
 at a time so if you have 4 cameras connected 3 of the cameras will need to wait for their
 turn. The fact that cameras have to take turns and the fact that you have to skip a few frames after
 each turn dramatically lowers the possible framerate. You can get a high framerate by viewing each
@@ -2852,7 +2975,7 @@ cannot connect to a video stream such a mpeg, mpeg4, divx. The URL must return o
 a rtsp stream, file or ftp.  When getting a still image, make sure to validate that the camera is serving up
 a actual raw JPG file and not a HTML page with an embedded JPG which is the current
 standard.
-When the netcam_url is defined the video4linux options above are ignored.
+When the netcam_url is defined the videodevice options above are mostly ignored. The options <a href="#width" >netcam_url</a>
 If the connection to a network camera is lost, Motion will reuse the last good image for
 approx 30 seconds. After 30 seconds the image is replaced by a grey image with a text
 telling that the signal is lost and when the connection was lost.
@@ -2866,26 +2989,88 @@ telling that the signal is lost and when the connection was lost.
   <li> Range / Valid values: Max 4095 characters</li>
   <li> Default: Not defined</li>
 </ul>
+
 <p></p>
-URL to use if you are using a network camera, size will be autodetected
+URL to use if you are using a network camera, size will be autodetected.
 Available prefixes to the URL:
- <ul>
-<li> http://</li>
-<li>ftp:// </li>
-<li>mjpg:// </li>
-<li>rtsp:// </li>
-<li>mjpeg:// </li>
-<li>file:/// </li>
- </ul>
-
-The prefixes of mjpg and mjpeg are not actual protocols and allow the user to specify
-different formats and methods to access the network stream.  They are internally translated
-into http.  For options such as rtsp, it is recommended that the connection string be
-validated with other applications such as ffplay or VLC.
-
 <p></p>
-When the netcam_url is defined the video4linux options are ignored.
+<ul>
+<i>http://</i>
+<ul>
+    This prefix uses the traditional http format and opens the netcam looking for a motion jpg image.
+</ul>
 <p></p>
+
+<i>ftp://</i>
+<ul>
+    This prefix opens the ftp site and grabs a static image.  The camera will be expected to periodically
+    replace that static image as it processes images.
+</ul>
+<p></p>
+
+<i>mjpg://</i>
+<ul>
+    This prefix is experimental and when Motion sees this prefix it will replace the mjpg with http and
+    then process the network camera using the extremely experimental method of grabbing motion jpg images.
+    <p></p>
+    The functionality of this option is unknown.
+</ul>
+<p></p>
+
+<i>rtsp://</i>
+<ul>
+    This prefix is the standard for all modern network cameras.  It is recommended that users search the
+    web or the camera manual for the exact connection string to use for their camera.
+    <p></p>
+    Once a potential connection string is found, it should be validated as being functional using a
+    external application such as ffplay or vlc.
+    <p></p>
+    The connection string that works for these applications is what needs to be specified for this option.
+    <p></p>
+    When using the rtsp format, Motion will ignore the netcam_keepalive and netcam_tolerant_check options.
+</ul>
+<p></p>
+
+<i>mjpeg://</i>
+<ul>
+    This is a experimental prefix.  The mjpeg is replaced with http by Motion internally and forces the
+    use of the ffmpeg libraries and the mjpeg format.
+    <p></p>
+    This option is equivalent to using <code>ffplay -f mjpeg http://{yourip}</code>.
+    <p></p>
+    In certain situations, this option may result in better results than using the http protocol.
+    <p></p>
+    Motion will ignore the netcam_keepalive and netcam_tolerant_check options when this format is specified.
+</ul>
+<p></p>
+
+<i>file://</i>
+<ul>
+    This option allows for the processing of a static image.  A process outside of Motion is required to replace the image.
+    <p></p>
+    A scenario for this would be processing a large number of previously saved images.  The file
+    option would point to a single location such as <code>/home/user/test/currentimage.jpg</code>  and a script
+    running external to Motion would loop through all the images and copy them into <code>currentimage.jpg</code>.
+</ul>
+<p></p>
+
+<i>v4l2://</i>
+<ul>
+    This option allows for an alternative method of using a v4l2 device that is not natively supported by Motion.
+    <p></p>
+    A sample format for the netcam_url would be <code>v4l2:///dev/video0</code>  Internally, this
+    is equivalent to running the following from the command line <code>ffplay -f v4l2 /dev/video0</code>
+    <p></p>
+    Since this is not the preferred method of specifying a v4l2 device, many of the usual v4l2 controls such as
+    hue, brightness, etc as well as other netcam options are ignored.
+    The options <a href="#width">width</a>, <a href="#height">height</a> as well as two of
+    the <a href="#v4l2_palette">v4l2_palette</a> can be used.  The two options
+    for <a href="#v4l2_palette">v4l2_palette</a> which can be used are option 8 (V4L2_PIX_FMT_MJPEG) and
+    option 21 (V4L2_PIX_FMT_H264).  If any other option is selected for the <a href="#v4l2_palette">v4l2_palette</a>
+    Motion will revert to the camera default.
+</ul>
+<p></p>
+</ul>
 
 <h3><a name="netcam_userpass"></a> netcam_userpass </h3>
 <p></p>
@@ -2930,7 +3115,7 @@ URL to use for a netcam proxy server, if required. The syntax is
 <a href="http://myproxy:portnumber" rel="nofollow" target="_top">http://myproxy:portnumber</a>
 Use this if you need to connect to a network camera through a proxy server.
 Example of syntax: "http://myproxy.mydomain.com:1024
-If the proxy port number is 80 you can ommit the port number. Then the syntax is use "http://myproxy.mydomain.com" .
+If the proxy port number is 80 you can omit the port number. Then the syntax is use "http://myproxy.mydomain.com" .
 Leave this option undefined if you do not use a proxy server.
 <p></p>
 
@@ -3020,6 +3205,19 @@ Note that the CPU load increases when using this feature with a value other than
 Motion automatically swaps width and height if you rotate 90 or 270 degrees, so you don't have to touch these options.
 <p></p>
 
+<h3><a name="flip_axis"></a> flip_axis </h3>
+<p></p>
+<ul>
+  <li> Type: Discrete Strings</li>
+  <li> Range / Valid values: none, v, h</li>
+  <li> Default: none (no change)</li>
+</ul>
+<p></p>
+Flip the image according to specified axis. The flip affects all saved images as well as movies.
+The flip feature is used when the camera is pointed towards a mirror or provides itself a mirrored image (as found in some cars).
+Note that the CPU load increases when using this feature with a value other than none.
+<p></p>
+
 <h3><a name="width"></a> width </h3>
 <p></p>
 <ul>
@@ -3029,7 +3227,7 @@ Motion automatically swaps width and height if you rotate 90 or 270 degrees, so 
 </ul>
 <p></p>
 The width in pixels of each frame. Valid range is camera dependent.
-Motion does not scale so should be set to the actual size of the v4l device.
+Motion does not scale so should be set to the actual size of the v4l2 device.
 In case of a net camera motion sets the height to the height of the first image read
 except for rtsp streams which does rescale the network camera image to the
 requested dimensions.  Note that this rescaling comes at a very high CPU cost so it
@@ -3045,7 +3243,7 @@ smaller size and create a gray band around the image to fit the size given by
 motion. Note that it is the driver and not motion that generates the gray band.
 Motion will try to detect motion in the entire image including the gray band.
 Older versions of Motion required that dimensions of image must have both height and width that are a multiple of 16.
-The latest versions have eliminated this requirement.
+The latest versions have relaxed this condition, requiring both dimensions to be a multiple of 8.
 <p></p>
 
 <h3><a name="height"></a> height </h3>
@@ -3071,7 +3269,7 @@ makes the driver create an image of the nearest smaller size and create a gray b
 the size given by motion. Note that it is the driver and not motion that generates the gray band. Motion will
 try to detect motion in the entire image including the gray band.
 Older versions of Motion required that dimensions of image must have both height and width that are a multiple of 16.
-The latest versions have eliminated this requirement.
+The latest versions have relaxed this condition, requiring both dimensions to be a multiple of 8.
 <p></p>
 
 <h3><a name="framerate"></a> framerate </h3>
@@ -3107,7 +3305,7 @@ webcam port etc.
 
 <p></p>
 
-<h3><a name="despeckle"></a> despeckle </h3>
+<h3><a name="despeckle_filter"></a> despeckle_filter </h3>
 <p></p>
 <ul>
   <li> Type: String</li>
@@ -3171,7 +3369,7 @@ saved preview jpeg image and not on the saved movie.
   <li> Range / Valid values: Max 4095 characters</li>
   <li> Default: </li>
 </ul>
-User defined text overlayed on each in the lower left corner.
+User defined text overlaid on each in the lower left corner.
 Use A-Z, a-z, 0-9, " / ( ) @ ~ # &lt; &gt; \ , . : - + _ \n and conversion specifiers
 <p></p>
 If the option is not defined no text is displayed at this position.
@@ -3186,7 +3384,7 @@ must be URL encoded. The browser does this for you. If you need
 to set it with a command line tool, use a browser first and let it make the encoded URL for you. Then
 you can copy paste it to your script file or cron line or whatever you want to use.
 <p></p>
-This is how the overlayed text is located.
+This is how the overlaid text is located.
 <p></p>
 <table border="1" width="354">
     <tr>
@@ -3223,7 +3421,7 @@ This is how the overlayed text is located.
   <li> Default: %Y-%m-%d\n%T</li>
 </ul>
 <p></p>
-User defined text overlayed on each in the lower right corner.
+User defined text overlaid on each in the lower right corner.
 Use A-Z, a-z, 0-9, " / ( ) @ ~ # &lt; &gt; \ , . : - + _ \n and conversion specifiers
 <p></p>
 If the option is not defined no text is displayed at this position.
@@ -3242,7 +3440,7 @@ A major difference from text_left is that if this option is undefined the
 default is %Y-%m-%d\n%T which displays the date in ISO format YYYY-MM-DD and below the
 time in 24 hour clock HH:MM:SS.
 <p></p>
-This is how the overlayed text is located.
+This is how the overlaid text is located.
 <p></p>
 <table border="1" width="354">
     <tr>
@@ -3282,7 +3480,7 @@ This is how the overlayed text is located.
 Turns the text showing changed pixels on/off.
 By setting this option to 'on' the number of pixels that changed compared to the
 reference frame is displayed in the upper right corner of the pictures. This is good for calibration and testing.
-This is how the overlayed text is located.
+This is how the overlaid text is located.
 <p></p>
 <table border="1" width="354">
     <tr>
@@ -3473,7 +3671,7 @@ and wide) as the pictures that are taken by the camera.
 You can adjust sensitivity by using gray tones.
 If you do not have a mask file disable this option by not having it in the config file or comment
 it out.
-If you are using the <code>rotate</code> option, note that the mask is applied <em>after</em> the rotation.
+If you are using the <code>rotate</code> or <code>flip_axis</code> options, note that the mask is applied <em>after</em> the rotation.
 <strong>Detailed Description</strong>
 <p></p>
 The mask file must be a pgm format image file (portable gray map). Note that you must choose the BINARY format.
@@ -3516,6 +3714,25 @@ Mask file (converted to png format so it can be shown by your web browser)
 <p></p>
 
 
+<p></p>
+
+<h3><a name="mask_privacy"></a> mask_privacy </h3>
+<p></p>
+<ul>
+  <li> Type: String</li>
+  <li> Range / Valid values: Max 4095 characters</li>
+  <li> Default: Not defined</li>
+</ul>
+<p></p>
+The full path and filename for the privacy masking pgm file.  This file works like the mask_file as
+described above.  The difference with this parameter is that while the mask_file excludes the section from
+detecting motion, this file excludes the section of the image completely.
+<p></p>
+mask_privacy is applied before detection so no motion will ever be detected in the excluded area.
+This parameter could however still be used with the mask_file.  e.g.  This file could exclude the
+neighbors yard and the mask_file would exclude the blowing tree from motion detection.  The resulting
+pictures/movies would show solid black in place of the neighbors yard but the tree would still be in
+the pictures/movies.
 <p></p>
 
 <h3><a name="smart_mask_speed"></a> smart_mask_speed </h3>
@@ -3829,6 +4046,24 @@ also remember the shebang line (e.g. #!/user/bin/perl) as the first line of the 
 <p></p>
 <p></p>
 
+<h3><a name="on_camera_found"></a> on_camera_found </h3>
+<p></p>
+<ul>
+  <li> Type: String</li>
+  <li> Range / Valid values: Max 4095 characters</li>
+  <li> Default: </li>
+</ul>
+<p></p>
+The full path and file name of the command to be executed when a lost camera is found
+If motion fails to detect a lost camera, it will also fail to know it found one.
+<p></p>
+You can use <a href="#conversion_specifiers">Conversion Specifiers</a>
+and spaces as part of the command.  This can be any type of program or script.
+Remember to set the execution bit in the ACL and if it is a script type program such as perl or bash
+also remember the shebang line (e.g. #!/user/bin/perl) as the first line of the script.
+<p></p>
+<p></p>
+
 </ul>
 
 <h3><a name="Options_Output_General"></a>Output - General Options</h3>
@@ -4003,7 +4238,7 @@ the .jpg or .ppm. E.g. the name can be 01-20020424232936-00m.jpg.
   <li> Default: 75</li>
 </ul>
 <p></p>
-The quality for the jpeg images in percent.
+The quality for the jpeg or webp images in percent.
 100 means hardly compressed. A small number means a much smaller file size but also a less nice
 quality image to look at.
 <p></p>
@@ -4304,109 +4539,21 @@ Camstream is "fooled" to think it is looking at a real camera.
 <p></p>
 <strong>Installing</strong>
 <p></p>
-Installing the video loopback device is not difficult. At least not when you have this document available.
-<p></p>
-First you must prepare your system for more video devices. You will need two extra devices for each video
-pipe that you want.
-<p></p>
-For example if you have 4 cameras they will probably run at
-/dev/video0, /dev/video1, /dev/video2, and /dev/video3. So you will need additional 8 video devices.
-This is easy to do.
-<p></p>
-<pre>
-mknod /dev/video4 c 81 4
-mknod /dev/video5 c 81 5
-mknod /dev/video6 c 81 6
-mknod /dev/video7 c 81 7
-mknod /dev/video8 c 81 8
-mknod /dev/video9 c 81 9
-mknod /dev/video10 c 81 10
-mknod /dev/video11 c 81 11
-</pre>
-<p></p>
-Note that the video device number is the same as the last parameter given on each line.
-<p></p>
-You may need to set the ownership and permissions (chown and chmod) to be the same as the video devices
-that were already there.
-<p></p>
-Now you need to install the video loopback device.
-<p></p>
-Download the latest via the apt packages and place the file in a place of your own choice.
-<p></p>
-Untar and uncompress the file to the place you want the program installed. Editor recommends /usr/local/vloopback.
-<p></p>
-<code>cd /usr/local</code>
-<p></p>
-<code>tar -xvzf /path/to/vloopback-1.1-rc1.tar.gz</code>
-<p></p>
-You now have a directory called vloopback-1.1-rc1. You can rename it to vloopback (mv vloopback-1.1-rc1 vloopback).
-I recommend creating a symbolic link to the current version. This way you can more easily experiment with different
-versions simply by changing the link.
-<p></p>
-<code>ln -s vloopback-1.1-rc1 vloopback</code>
-<p></p>
-Now change to the new directory
-<p></p>
-<code>cd vloopback</code>
-<p></p>
-Build the code
-<p></p>
-<code>make</code>
-<p></p>
-There is a good chance that the make will not work and give you a long list of errors.
-To run make the following must be available on you machine. <ul>
-<li> The kernel source files must be installed.
-</li> <li> The source files must be available at /usr/src/linux.<br />E.g.
-the new Red Hat 7.3 does not have a link to the sources called linux. Instead there is a link
-called linux-2.4. This is easy to fix. Just create a link to the real source tree. Do not rename!
-Add a link using this command (replacing the kernel version number with the one you have on your
-machine)<br /> <code>ln -s /usr/src/linux-2.4.18-4 /usr/src/linux</code>
-</li> <li> Alternatively you can change the vloopback makefile so that the "LINUXSRC=/usr/src/linux" line is
-changed to the actual path. I recommend the link solution since this may solve other similar problems that you
-can get when installing other software.
-</li></ul>
-<p></p>
-When compiling on a newer Linux distribution you may get a warning about a header file malloc.h.
-To remove this warning simply change the header reference as suggested by the warning.
-<p></p>
-In vloopback.c you replace the line
-<p></p>
-<code>#include &lt;linux/malloc.h&gt;</code>
-<p></p>
-with the line
-<p></p>
-<code>#include &lt;linux/slab.h&gt;</code>
-<p></p>
-Install the code you built as a Kernel module. There are two options:
-pipes should be set to the number of video loopbacks that you want. Probably one for each camera.
-The dev_offset defines which video device number will be the first. If dev_offset is not defined the
-vloopback module will install itself from the first available video device. If you want the cameras to be
-assigned to the lower video device numbers you must either load vloopback after loading the video device
-modules OR use the dev_offset option when loading vloopback. Vloopback then installs itself in the sequence
-input 0, output 0, input 1, output 1, input 2, output 2 etc. Here is shown the command for our example of 4
-cameras and 4 loopback devices and the first loopback device offset to /dev/video4.
-<p></p>
-<code>/sbin/insmod /usr/local/vloopback/vloopback.o pipes=4 dev_offset=4</code>
-<p></p>
-When you run the command you may get a warning about tainting the Kernel. Just ignore this.
-You can choose to copy the vloopback.o file into a directory in the /lib/modules tree where the insmod/modprobe programs are already looking for modules. Then the command gets simpler (/sbin/insmod vloopback pipes=.....).
-<p></p>
-If you want the loopback device to load during boot, you can place the call in one of the bootup scripts such as /etc/rc.d/rc.local. Vloopback should be loaded before you start motion.
+The video loopback device can be added installed via apt in many distributions.  The package tested
+with Motion is v4l2loopback-dkms.  Once the package is installed, you just need to run
+<code><strong>sudo modprobe v4l2loopback</strong></code>.  This will add a new video device that you
+can use for the loopback.  It is believed that there are additional options associated with the
+v4l2loopback that allows for adding more than one device.  See the documentation of the v4l2loopback
+project for additional details.
 <p></p>
 To activate the vloopback device in motion set the 'video_pipe' option in the motion.conf file.
 You can also view the special motion pictures where you see the changed pixels by setting the option
 'motion_video_pipe' in motion.conf. When setting the video_pipe and/or motion_video_pipe options either
-specify the input device as e.g. /dev/video4. You can also set the parameter to '-' which means that motion
-will find the first vacant video loopback device input. If you have more than one camera you may want to
-control which loopback device each camera uses. Then you need to define the specific device name in motion.conf
-for the first camera and in each camera config file for the other cameras. If you set the video_pipe parameter
-to '-' in the motion.conf file and not setting it in the camera config files, motion automatically assign video
-devices in the same sequence as the camera config files are loaded. You can combine both video_pipe and motion_video_pipe
-but then naturally you will need twice as many pipes.
+specify the input device as e.g. /dev/video4.
 <p></p>
 De-activating should be done with this command
 <p></p>
-<code>/sbin/modprobe -r vloopback</code>
+<code>sudo modprobe -r v4l2loopback</code>
 <p></p>
 <p></p>
 
@@ -4420,10 +4567,9 @@ De-activating should be done with this command
   <li> Default: </li>
 </ul>
 <p></p>
-if a dash '-' is given motion will use /proc/video/vloopback/vloopbacks to locate a free pipe. Default: not set
-The video4linux video loopback input device for normal images. If a particular pipe is to be used then use the
-device filename of this pipe. If a dash '-' is given motion will use /proc/video/vloopback/vloopbacks to locate
-a free pipe.
+Default: not set
+The video4linux video loopback input device for normal images. The device would be specified
+in the format like /dev/video1
 <p></p>
 <p></p>
 
@@ -4434,9 +4580,8 @@ a free pipe.
 </li> <li> Default: Not defined
 </li></ul>
 <p></p>
-The video4linux video loopback input device for motion images.
-If a particular pipe is to be used then use the device filename of this pipe,
-if a dash '-' is given motion will use /proc/video/vloopback/vloopbacks to locate a free pipe. Default: not set
+The video4linux video loopback input device for motion images. The device would be specified
+in the format like /dev/video1
 <p></p>
 <p></p>
 
@@ -4490,7 +4635,7 @@ extpipe ffmpeg -y -f rawvideo -pix_fmt yuv420p -video_size %wx%h -framerate %fps
 
 </ul>
 
-<h3><a name="Options_Stream_Webcontrol"></a> Steam and Webcontrol</a> </h3>
+<h3><a name="Options_Stream_Webcontrol"></a> Stream and Webcontrol</a> </h3>
 <ul>
 
 Motion has simple webcam server built in. The server can be configured to
@@ -4613,12 +4758,14 @@ to the following.
   <li> Default: 0 (disabled)</li>
 </ul>
 <p></p>
-# The mini-http server listens to this port for requests (default: 0 = disabled)
-TCP port on which motion will listen for incoming connects with its webcam server.
-Note that each camera must have its own unique port number and it must also be different from the control_port number.
+# The mini-http live streaming server listens to this port for requests (default: 0 = disabled)
+TCP port on which motion will listen for incoming connections to its webcam server.
+Note that each camera must have its own unique port number and it must
+also be different from the webcontrol_port number.
 A good value to select is 8081 for camera 1, 8082 for camera 2, 8083 for camera 3 etc etc.
 
-This must be placed in motion.conf and not in a camera config file.
+This must be placed in the camera config file (unless you only have
+one camera, in which case it can be placed in motion.conf).
 
 <p></p>
 
@@ -4838,6 +4985,10 @@ Mysql : CREATE TABLE security (camera int, filename char(80) not null, frame int
 <p></p>
 Postgresql : CREATE TABLE security (camera int, filename char(80) not null, frame int, file_type int, time_stamp timestamp without time zone, event_time_stamp timestamp without time zone);
 <p></p>
+MySQL to use the dbeventid, sql_query_start
+<p></p>
+CREATE TABLE security_file (file_id int primary key auto_increment, event_id int foreign key, filename text not null, frame int, file_type int, time_stamp timestamp(14));\n"
+<p></p>
 
 
 <p></p>
@@ -4900,10 +5051,41 @@ You can use <a href="#conversion_specifiers">Conversion Specifiers</a>
 within the query.
 <p></p>
 <p></p>
-Sample Query
+Sample Queries (depend upon the table created)
 <p></p>
 insert into security(camera, filename, frame, file_type, time_stamp, text_event) values('%t', '%f', '%q', '%n', '%Y-%m-%d %T', '%C')
 insert or ignore into images (camera_nbr, file_name, year, month, day, hour, minute) values (8, '%f', '%Y','%m','%d','%H','%M')
+insert into security_file(camera, event_id, filename, frame, file_type, time_stamp) values('%t', '%{dbeventid}', '%f', '%q', '%n', '%Y-%m-%d %T')"
+<p></p>
+<p></p>
+
+<h3><a name="sql_query_start"></a> sql_query_start </h3>
+<p></p>
+<ul>
+  <li> Type: String</li>
+  <li> Range / Valid values: Max 4095 characters</li>
+  <li> Default: Not Defined</li>
+</ul>
+<p></p>
+SQL query string that executes against the event table which tracks the unique events of motion.
+<p></p>
+Once the new record is added to this table, the mysql function <code><b>mysql_insert_id</b></code> is then
+executed to provide the key back into the <code><b>dbeventid</b></code> specifier.
+<p></p>
+The <code><b>dbeventid</b></code> specifier can then be used in the <code><b>sql_query</b></code> as a parameter
+to that query for inserting into the table.
+<p></p>
+Although this query is run for all the different database options, the <code><b>dbeventid</b></code> is
+only set for mysql databases.  For the other databases, the <code><b>dbeventid</b></code> is always set
+to zero.
+<p></p>
+<p></p>
+You can use <a href="#conversion_specifiers">Conversion Specifiers</a>within the query.
+<p></p>
+<p></p>
+Sample Query
+<p></p>
+insert into security_events(camera, event_time_stamp) values('%t', '%Y-%m-%d %T')"
 <p></p>
 <p></p>
 

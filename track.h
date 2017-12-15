@@ -35,6 +35,17 @@ struct trackoptions {
     unsigned int step_angle_x;
     unsigned int step_angle_y;
     unsigned int move_wait;
+    /* FOSCAM */
+    char *track_home_pos_name; 	//FOSCAM Name of home position
+	int FOSCAM_thread_running; 	//FOSCAM thread control
+	pthread_t thread_id;		//FOSCAM thread control
+	//char direction[PATH_MAX];  	//FOSCAM thread use
+	int direction;				//FOSCAM thread use
+	int step_size;  			//FOSCAM thread use
+	int isCamMoving;   			//FOSCAM thread use
+	int abs_x;					//FOSCAM calculated absolute x pos(+/- from home position which is 0)
+	int abs_y;					//FOSCAM calculated absolute y pos(+/- from home position which is 0)
+    
     /* UVC */
     int pan_angle; // degrees
     int tilt_angle; // degrees
@@ -57,6 +68,7 @@ unsigned int track_move(struct context *, int, struct coord *, struct images *, 
 #define TRACK_TYPE_GENERIC      4
 #define TRACK_TYPE_UVC          5
 #define TRACK_TYPE_SERVO        6
+#define TRACK_TYPE_FOSCAM_HD      7
 
 /*
  * Some defines for the Serial stepper motor:
@@ -117,7 +129,7 @@ unsigned int track_move(struct context *, int, struct coord *, struct images *, 
 
 #define SERVO_BAUDRATE        B9600
 
-#define SERVO_COMMAND_STATUS   0 
+#define SERVO_COMMAND_STATUS   0
 #define SERVO_COMMAND_LEFT_N   1
 #define SERVO_COMMAND_RIGHT_N  2
 #define SERVO_COMMAND_LEFT     3
@@ -155,7 +167,23 @@ unsigned int track_move(struct context *, int, struct coord *, struct images *, 
 #define IOMOJO_DIRECTION_DOWN   0x04
 #define IOMOJO_DIRECTION_UP     0x08
 
-#ifndef WITHOUT_V4L
+/*
+* Some defines for the Foscam HD pan/tilt/zoom cameras:
+*/
+
+#define FOSCAM_HD_UP                  "ptzMoveUp"
+#define FOSCAM_HD_STOP                "ptzStopRun"
+#define FOSCAM_HD_DOWN                "ptzMoveDown"
+#define FOSCAM_HD_LEFT                "ptzMoveLeft"
+#define FOSCAM_HD_RIGHT               "ptzMoveRight"
+#define FOSCAM_HD_MOVEHOME            "ptzGotoPresetPoint&name="
+#define FOSCAM_HD_LEFT_UP             "ptzMoveTopLeft"
+#define FOSCAM_HD_RIGHT_UP            "ptzMoveTopRight"
+#define FOSCAM_HD_LEFT_DOWN           "ptzMoveBottomLeft"
+#define FOSCAM_HD_RIGHT_DOWN          "ptzMoveBottomRight"
+#define FOSCAM_HD_HOME                "0"
+
+#ifdef HAVE_V4L2
 
 /*
  * Defines for the Logitech QuickCam Orbit/Sphere USB webcam
@@ -165,27 +193,28 @@ unsigned int track_move(struct context *, int, struct coord *, struct images *, 
 #define LQOS_HORIZONAL_DEGREES  120
 
 /*
- * UVC 
+ * UVC
  */
 
-#ifdef MOTION_V4L2
-
 #ifndef V4L2_CID_PAN_RELATIVE
-#define V4L2_CID_PAN_RELATIVE   (V4L2_CID_PRIVATE_BASE+7)
+#define V4L2_CID_PAN_RELATIVE                   (V4L2_CID_CAMERA_CLASS_BASE+4)
 #endif
 
 #ifndef V4L2_CID_TILT_RELATIVE
-#define V4L2_CID_TILT_RELATIVE  (V4L2_CID_PRIVATE_BASE+8)
+#define V4L2_CID_TILT_RELATIVE                  (V4L2_CID_CAMERA_CLASS_BASE+5)
 #endif
 
-#ifndef V4L2_CID_PANTILT_RESET
-#define V4L2_CID_PANTILT_RESET  (V4L2_CID_PRIVATE_BASE+9)
+#ifndef V4L2_CID_PAN_RESET
+#define V4L2_CID_PAN_RESET                      (V4L2_CID_CAMERA_CLASS_BASE+6)
+#endif
+
+#ifndef V4L2_CID_TILT_RESET
+#define V4L2_CID_TILT_RESET                     (V4L2_CID_CAMERA_CLASS_BASE+7)
 #endif
 
 #define INCPANTILT 64 // 1 degree
-#endif /* MOTION_V4L2 */
 
 
-#endif /* WITHOUT_V4L */
+#endif /* HAVE_V4L2 */
 
 #endif /* _INCLUDE_TRACK_H */

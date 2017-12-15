@@ -24,10 +24,7 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
-
 #include "motion.h"
 #include "jpegutils.h"
 #include <setjmp.h>
@@ -758,7 +755,7 @@ int decode_jpeg_raw (unsigned char *jpeg_data, int len,
     * threshold for discarding an image would be a function
     * of the threshold for the trigger of motion.
     */
-    if (dinfo.output_height == 0){ 
+    if (dinfo.output_height == 0){
         return 1;
     } else {
         if ( (jerr.warning_seen / dinfo.output_height)  > 0.10)

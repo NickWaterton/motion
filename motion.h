@@ -12,25 +12,17 @@
 
 #include "config.h"
 
-#if defined(__FreeBSD__) || defined(__NetBSD__)
-#define BSD
-#endif
-
 /* Includes */
 #ifdef HAVE_MYSQL
-#include <mysql.h>
+#include <mysql/mysql.h>
 #endif
 
 #ifdef HAVE_SQLITE3
-#ifdef HAVE_SQLITE3_EMBEDDED
-#include "sqlite3.h"
-#else
 #include <sqlite3.h>
-#endif
 #endif
 
 #ifdef HAVE_PGSQL
-#include <libpq-fe.h>
+#include <postgresql/libpq-fe.h>
 #endif
 
 
@@ -46,6 +38,7 @@
 #include <signal.h>
 #include <limits.h>
 #include <errno.h>
+#include <assert.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -53,23 +46,27 @@
 #include <sys/ioctl.h>
 #include <sys/param.h>
 #include <stdint.h>
-
-#define _LINUX_TIME_H 1
-#if defined(HAVE_LINUX_VIDEODEV_H) && (!defined(WITHOUT_V4L)) && (!defined(BSD))
-#include <linux/videodev.h>
-#endif
-
 #include <pthread.h>
+
+#ifdef __FreeBSD__
+//It is unknown whether it is safe to put this into the if/else below on Apple and BSD
+#include <pthread_np.h>
+#endif
 
 #include "logger.h"
 #include "conf.h"
 #include "stream.h"
 #include "webhttpd.h"
 
-#ifdef HAVE_SDL
-#include "sdl.h"
+#ifdef __APPLE__
+#define MOTION_PTHREAD_SETNAME(name)  pthread_setname_np(name)
+#elif defined(BSD)
+#define MOTION_PTHREAD_SETNAME(name)  pthread_set_name_np(pthread_self(), name)
+#elif HAVE_PTHREAD_SETNAME_NP
+#define MOTION_PTHREAD_SETNAME(name)  pthread_setname_np(pthread_self(), name)
+#else
+#define MOTION_PTHREAD_SETNAME(name)
 #endif
-
 
 /**
  * ATTRIBUTE_UNUSED:
@@ -93,7 +90,7 @@
 #endif
 
 
-/* 
+/*
  *  The macro below defines a version of sleep using nanosleep
  * If a signal such as SIG_CHLD interrupts the sleep we just continue sleeping
  */
@@ -102,7 +99,7 @@
                 tv.tv_sec = (seconds);             \
                 tv.tv_nsec = (nanoseconds);        \
                 while (nanosleep(&tv, &tv) == -1); \
-        } 
+        }
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
@@ -144,6 +141,9 @@
 #define DEF_FFMPEG_VBR           0
 #define DEF_FFMPEG_CODEC   "mpeg4"
 
+#define DEF_INPUT               -1
+#define DEF_VIDEO_DEVICE         "/dev/video0"
+
 #define THRESHOLD_TUNE_LENGTH  256
 
 #define MISSING_FRAMES_TIMEOUT  30  /* When failing to get picture frame from camera
@@ -173,12 +173,13 @@
 #define DEF_TIMELAPSE_MODE      "daily"
 
 /* Do not break this line into two or more. Must be ONE line */
-#define DEF_SQL_QUERY "sql_query insert into security(camera, filename, frame, file_type, time_stamp, event_time_stamp) values('%t', '%f', '%q', '%n', '%Y-%m-%d %T', '%C')"
-
+#define DEF_SQL_QUERY_START "sql_query_start insert into security_events(camera, event_time_stamp) values('%t', '%Y-%m-%d %T')"
+#define DEF_SQL_QUERY       "sql_query insert into security_file(camera, filename, frame, file_type, time_stamp) values('%t', '%f', '%q', '%n', '%Y-%m-%d %T')"
 
 /* OUTPUT Image types */
 #define IMAGE_TYPE_JPEG        0
 #define IMAGE_TYPE_PPM         1
+#define IMAGE_TYPE_WEBP        2
 
 /* Filetype defines */
 #define FTYPE_IMAGE            1
@@ -222,7 +223,7 @@ struct images;
 #include "mmalcam.h"
 #endif
 
-/* 
+/*
  * Structure to hold images information
  * The idea is that this should have all information about a picture e.g. diffs, timestamp etc.
  * The exception is the label information, it uses a lot of memory
@@ -238,16 +239,23 @@ struct images;
 #define IMAGE_PRECAP    16
 #define IMAGE_POSTCAP   32
 
+enum CAMERA_TYPE {
+    CAMERA_TYPE_UNKNOWN,
+    CAMERA_TYPE_V4L2,
+    CAMERA_TYPE_BKTR,
+    CAMERA_TYPE_MMAL,
+    CAMERA_TYPE_NETCAM
+};
+
 struct image_data {
     unsigned char *image;
     int diffs;
-    time_t timestamp;           /* Timestamp when image was captured */
-    struct tm timestamp_tm;
+    struct timeval timestamp_tv;
     int shot;                   /* Sub second timestamp count */
 
-    /* 
-     * Movement center to img center distance 
-     * Note: Dist is calculated distX*distX + distY*distY 
+    /*
+     * Movement center to img center distance
+     * Note: Dist is calculated distX*distX + distY*distY
      */
     unsigned long cent_dist;
 
@@ -258,24 +266,24 @@ struct image_data {
     int total_labels;
 };
 
-/* 
+/*
  * DIFFERENCES BETWEEN imgs.width, conf.width AND rotate_data.cap_width
  * (and the corresponding height values, of course)
  * ===========================================================================
  * Location      Purpose
- * 
+ *
  * conf          The values in conf reflect width and height set in the
- *               configuration file. These can be set via http remote control, 
+ *               configuration file. These can be set via http remote control,
  *               but they are not used internally by Motion, so it won't break
  *               anything. These values are transferred to imgs in vid_start.
  *
  * imgs          The values in imgs are the actual output dimensions. Normally
  *               the output dimensions are the same as the capture dimensions,
- *               but for 90 or 270 degrees rotation, they are not. E.g., if 
+ *               but for 90 or 270 degrees rotation, they are not. E.g., if
  *               you capture at 320x240, and rotate 90 degrees, the output
  *               dimensions are 240x320.
- *               These values are set from the conf values in vid_start, or 
- *               from the first JPEG image in netcam_start. For 90 or 270 
+ *               These values are set from the conf values in vid_start, or
+ *               from the first JPEG image in netcam_start. For 90 or 270
  *               degrees rotation, they are swapped in rotate_init.
  *
  * rotate_data   The values in rotate_data are named cap_width and cap_height,
@@ -303,13 +311,17 @@ struct images {
     unsigned char *smartmask;
     unsigned char *smartmask_final;
     unsigned char *common_buffer;
+
+    unsigned char *mask_privacy;      /* Buffer for the privacy mask values */
+    unsigned char *mask_privacy_uv;   /* Buffer for the privacy U&V values */
+
     int *smartmask_buffer;
     int *labels;
     int *labelsize;
     int width;
     int height;
     int type;
-    int picture_type;                 /* Output picture type IMAGE_JPEG, IMAGE_PPM */        
+    int picture_type;                 /* Output picture type IMAGE_JPEG, IMAGE_PPM */
     int size;
     int motionsize;
     int labelgroup_max;
@@ -318,20 +330,33 @@ struct images {
     int largest_label;
 };
 
+enum FLIP_TYPE {
+    FLIP_TYPE_NONE,
+    FLIP_TYPE_HORIZONTAL,
+    FLIP_TYPE_VERTICAL
+};
+
 /* Contains data for image rotation, see rotate.c. */
 struct rotdata {
     /* Temporary buffer for 90 and 270 degrees rotation. */
     unsigned char *temp_buf;
-    /* 
+    /*
      * Degrees to rotate; copied from conf.rotate_deg. This is the value
      * that is actually used. The value of conf.rotate_deg cannot be used
      * because it can be changed by motion-control, and changing rotation
      * while Motion is running just causes problems.
      */
     int degrees;
+
     /*
-     * Capture width and height - different from output width and height if 
-     * rotating 90 or 270 degrees. 
+     * Rotate image over the Horizontal or Vertical axis.
+     * As with degrees, this is the value actually used, and value of conf.flip_axis
+     * cannot be used.
+     */
+    enum FLIP_TYPE axis;
+    /*
+     * Capture width and height - different from output width and height if
+     * rotating 90 or 270 degrees.
      */
     int cap_width;
     int cap_height;
@@ -356,10 +381,13 @@ struct context {
     struct config conf;
     struct images imgs;
     struct trackoptions track;
+
+    enum CAMERA_TYPE      camera_type;
     struct netcam_context *netcam;
 #ifdef HAVE_MMAL
     struct mmalcam_context *mmalcam;
 #endif
+
     struct image_data *current_image;        /* Pointer to a structure where the image, diffs etc is stored */
     unsigned int new_img;
 
@@ -389,6 +417,7 @@ struct context {
 
     int event_nr;
     int prev_event;
+    unsigned long long database_event_id;
     unsigned int lightswitch_framecounter;
     char text_event_string[PATH_MAX];        /* The text for conv. spec. %C -
                                                 we assume PATH_MAX normally 4096 characters is fine */
@@ -409,18 +438,15 @@ struct context {
     unsigned int moved;
     unsigned int pause;
     int missing_frame_counter;               /* counts failed attempts to fetch picture frame from camera */
-    unsigned int lost_connection;    
+    unsigned int lost_connection;
 
-#if (defined(BSD))
-    int tuner_dev;
-#endif
     int video_dev;
     int pipe;
     int mpipe;
 
     struct stream stream;
     int stream_count;
-    
+
 #if defined(HAVE_MYSQL) || defined(HAVE_PGSQL) || defined(HAVE_SQLITE3)
     int sql_mask;
 #endif
@@ -431,6 +457,7 @@ struct context {
 
 #ifdef HAVE_MYSQL
     MYSQL *database;
+
 #endif
 
 #ifdef HAVE_PGSQL
@@ -442,14 +469,42 @@ struct context {
     char extpipefilename[PATH_MAX];
     int movie_last_shot;
 
-#ifdef HAVE_FFMPEG
     struct ffmpeg *ffmpeg_output;
     struct ffmpeg *ffmpeg_output_debug;
     struct ffmpeg *ffmpeg_timelapse;
     struct ffmpeg *ffmpeg_smartmask;
     char timelapsefilename[PATH_MAX];
     char motionfilename[PATH_MAX];
-#endif
+
+    int area_minx[9], area_miny[9], area_maxx[9], area_maxy[9];
+    int areadetect_eventnbr;
+    /* ToDo Determine why we need these...just put it all into prepare? */
+    unsigned long long int timenow, timebefore;
+
+    unsigned int rate_limit;
+    time_t lastframetime;
+    int minimum_frame_time_downcounter;
+    unsigned int get_image;    /* Flag used to signal that we capture new image when we run the loop */
+
+    unsigned int text_size_factor;
+    long int required_frame_time, frame_delay;
+
+    long int rolling_average_limit;
+    long int *rolling_average_data;
+    unsigned long int rolling_average;
+
+    int olddiffs;   //only need this in here for a printf later...do we need that printf?
+    int smartmask_ratio;
+    int smartmask_count;
+
+    int previous_diffs, previous_location_x, previous_location_y;
+    unsigned long int time_last_frame, time_current_frame;
+
+    unsigned int smartmask_lastrate;
+
+    unsigned int passflag;  //only purpose is to flag first frame vs all others.....
+    int rolling_frame;
+
 };
 
 extern pthread_mutex_t global_lock;
@@ -464,6 +519,6 @@ void * mymalloc(size_t);
 void * myrealloc(void *, size_t, const char *);
 FILE * myfopen(const char *, const char *);
 int myfclose(FILE *);
-size_t mystrftime(const struct context *, char *, size_t, const char *, const struct tm *, const char *, int);
+size_t mystrftime(const struct context *, char *, size_t, const char *, const struct timeval *, const char *, int);
 int create_path(const char *);
 #endif /* _INCLUDE_MOTION_H */

@@ -165,8 +165,8 @@ Description:
 .fi
 .RS
 String to specify the videodevice to be used for capturing.
-For Linux, the format is usually /dev/videoX where X varies depending upon the video devices connected to the computer.
-For FreeBSD the default device would be /dev/bktr0.
+The format is usually /dev/videoX where X varies depending upon the video devices connected to the computer.
+For FreeBSD certain devices use the bktr subsystem and they will use /dev/bktr0.
 .RE
 .RE
 
@@ -378,6 +378,7 @@ mjpg://
 rtsp://
 mjpeg://
 file://
+v4l2://
 .RE
 
 The connection string is camera specific.
@@ -732,6 +733,21 @@ This option specifies the full path and name for the mask file.
 .RE
 
 .TP
+.B mask_privacy
+.RS
+.nf
+Values: User specified string
+Default: Not defined
+Description:
+.fi
+.RS
+The PGM mask file is a specially constructed mask file that allows the user to indicate the areas
+to remove from all images.
+This option specifies the full path and name for the privacy mask file.
+.RE
+.RE
+
+.TP
 .B smart_mask_speed
 .RS
 .nf
@@ -888,7 +904,7 @@ Default: 75
 Description:
 .fi
 .RS
-The quality (in percent) to be used by the jpeg compression
+The quality (in percent) to be used by the jpeg and webp compression
 .RE
 .RE
 
@@ -896,7 +912,7 @@ The quality (in percent) to be used by the jpeg compression
 .B picture_type
 .RS
 .nf
-Values: jpeg/ppm
+Values: jpeg/ppm/webp
 Default: jpeg
 Description:
 .fi
@@ -1050,19 +1066,6 @@ Description:
 .fi
 .RS
 When creating videos, should frames be duplicated in order to keep up with the requested frames per second
-.RE
-.RE
-
-.TP
-.B sdl_threadnr
-.RS
-.nf
-Values: 0 to unlimited
-Default: 0
-Description:
-.fi
-.RS
-Number of motion thread to show in SDL Window
 .RE
 .RE
 
@@ -1263,7 +1266,7 @@ Description:
 .fi
 .RS
 The file path for snapshots relative to target_dir.
-The file extension .jpg or .ppm is automatically added so do not include this.
+The file extension .jpg, .ppm or .webp is automatically added so do not include this.
 A symbolic link called lastsnap.jpg created in the target_dir will always
 point to the latest snapshot, unless snapshot_filename is exactly 'lastsnap'
 This option accepts the conversion specifiers included at the end of this manual.
@@ -1279,8 +1282,8 @@ Default: %v-%Y%m%d%H%M%S-%q
 Description:
 .fi
 .RS
-The file path for motion triggered images (jpeg or ppm) relative to target_dir.
-The file extension of .jpg or .ppm is automatically added so do not include this.
+The file path for motion triggered images (jpeg, ppm or webp) relative to target_dir.
+The file extension .jpg, .ppm or .webp is automatically added so do not include this.
 Set to 'preview' together with best-preview feature enables special naming
 convention for preview shots.
 This option accepts the conversion specifiers included at the end of this manual.
@@ -1619,7 +1622,7 @@ Do not sound beeps when detecting motion
 .nf
 on_event_start, on_event_end, on_picture_save
 on_motion_detected, on_area_detected, on_movie_start
-on_movie_end, on_camera_lost
+on_movie_end, on_camera_lost, on_camera_found
 
 .fi
 .RE
@@ -1713,6 +1716,22 @@ Postgresql: CREATE TABLE security (camera int, filename char(80) not null, frame
 Sample sql_query
 .RS
 insert into security(camera, filename, frame, file_type, time_stamp, text_event) values('%t', '%f', '%q', '%n', '%Y-%m-%d %T', '%C')
+.RE
+.RE
+.RE
+
+.TP
+.B sql_query_start
+.RS
+.nf
+Values: User defined string
+Default: Not defined
+Description:
+.fi
+.RS
+SQL statement to execute at the start of a event.
+For mysql databases a unique id is returned in the dbeventid conversion specifier but for
+other databases, the dbeventid conversion specifier is assigned to zero.
 .RE
 .RE
 .RE
@@ -1818,7 +1837,7 @@ Default: Not Defined
 Description:
 .fi
 .RS
-Output images to a video4linux loopback device.  The value '-' means next available
+Output images to a video4linux loopback device.
 .RE
 .RE
 
@@ -1831,7 +1850,7 @@ Default: Not Defined
 Description:
 .fi
 .RS
-Output motion images to a video4linux loopback device.  The value '-' means next available
+Output motion images to a video4linux loopback device.
 .RE
 .RE
 
@@ -2092,6 +2111,17 @@ The time zone or name or abbreviation.
 .TP
 .B %$
 The camera name.
+.TP
+.B %{host}
+The computer host name
+.TP
+.B %{fps}
+The frame per seconds.
+.TP
+.B %{dbeventid}
+The id number returned from mysql_insert_id.
+
+
 
 .TP
 .B More information
